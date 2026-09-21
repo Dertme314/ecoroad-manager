@@ -1,0 +1,477 @@
+    public final void notifyBleDataByte(byte[] bytess) {
+        int i5;
+        StringBuilder sb;
+        LiveData controllerSuppliersEco;
+        int i6;
+        int i7;
+        double dDoubleValue;
+        String string;
+        LiveData bleConnectS;
+        Object objValueOf;
+        MutableLiveData<String> controlVersionEco;
+        Intrinsics.checkNotNullParameter(bytess, "bytess");
+        if (bytess.length < 7) {
+            return;
+        }
+        int i8 = bytess[0] & 255;
+        int i9 = bytess[1] & 255;
+        if (i8 == 26 && i9 == 161) {
+            int i10 = bytess[2] & 255;
+            if (i10 != 32) {
+                if (i10 != 33) {
+                    if (i10 != 48) {
+                        if (i10 == 102) {
+                            int i11 = bytess[4] & 255;
+                            int i12 = bytess[5] & 255;
+                            if (i11 > 1) {
+                                int i13 = i11 - 1;
+                                byte[] bArr = new byte[i13];
+                                if (bytess.length > i11 + 4) {
+                                    if (i12 == 1) {
+                                        System.arraycopy(bytess, 6, bArr, 0, i13);
+                                        controlVersionEco = BleDataFactoryEco.INSTANCE.getControlVersionEco();
+                                    } else {
+                                        if (i12 != 2) {
+                                            return;
+                                        }
+                                        System.arraycopy(bytess, 6, bArr, 0, i13);
+                                        controlVersionEco = BleDataFactoryEco.INSTANCE.getMeterVersionCirEco();
+                                    }
+                                    controlVersionEco.setValue(u0.b.b(bArr));
+                                    return;
+                                }
+                                return;
+                            }
+                            return;
+                        }
+                        switch (i10) {
+                            case 97:
+                                String strSnReadConvertCon = EcoBytesExpand.INSTANCE.snReadConvertCon(bytess);
+                                showBleDataLog("snReadConvert() returned:= " + strSnReadConvertCon);
+                                if (!TextUtils.isEmpty(strSnReadConvertCon)) {
+                                    bleConnectS = BleDataFactoryEco.INSTANCE.getSnSum();
+                                    objValueOf = strSnReadConvertCon;
+                                }
+                                break;
+                            case 98:
+                                int i14 = bytess[5] & 255;
+                                int i15 = bytess[6] & 255;
+                                BleDataFactoryEco bleDataFactoryEco = BleDataFactoryEco.INSTANCE;
+                                bleDataFactoryEco.getSpeedLimitEco().setValue(new SpeedLimitBimt(i14, i15));
+                                sb = new StringBuilder();
+                                sb.append("currentSpeedLimit() returned: ");
+                                controllerSuppliersEco = bleDataFactoryEco.getSpeedLimitEco();
+                                break;
+                            case 99:
+                                int i16 = bytess[5] & 255;
+                                int i17 = bytess[6] & 255;
+                                int i18 = bytess[7] & 255;
+                                int i19 = 3 * i18;
+                                byte[] bArr2 = new byte[i19];
+                                if (bytess.length >= 7 + i19) {
+                                    System.arraycopy(bytess, 8, bArr2, 0, i19);
+                                    BleDataFactoryEco.INSTANCE.getLightDataEco().setValue(new LightBlig(i16, i18, i17, bArr2));
+                                }
+                                break;
+                        }
+                        return;
+                    }
+                    int i20 = bytess[5] & 255;
+                    bleConnectS = BleDataFactoryEco.INSTANCE.getBleConnectS();
+                    objValueOf = Integer.valueOf(i20);
+                    bleConnectS.setValue(objValueOf);
+                    return;
+                }
+                if (bytess.length < 17) {
+                    return;
+                }
+                double dTake2Data = take2Data(((double) com.eco.ecoroad.utileco.d.a(bytess[5], bytess[6])) * 0.1d);
+                double dTake2Data2 = take2Data(((double) com.eco.ecoroad.utileco.d.a(bytess[7], bytess[8])) * 0.01d);
+                double dTake2Data3 = take2Data(((double) com.eco.ecoroad.utileco.d.a(bytess[9], bytess[10])) * 0.01d);
+                double dTake2Data4 = take2Data(((double) com.eco.ecoroad.utileco.d.a(bytess[11], bytess[12])) * 0.1d);
+                double dTake2Data5 = take2Data(com.eco.ecoroad.utileco.d.a(bytess[13], bytess[14]));
+                int iTake2Data = (int) take2Data(bytess[15] & 255);
+                double dTake2Data6 = take2Data(((double) (bytess[16] & 255)) * 0.1d);
+                int i21 = bytess.length > 17 ? bytess[17] & 255 : 0;
+                int i22 = bytess.length > 18 ? bytess[18] & 255 : 0;
+                int i23 = bytess.length > 19 ? bytess[19] & 255 : 0;
+                if (bytess.length > 20) {
+                    String string2 = StringsKt.reversed((CharSequence) com.eco.ecoroad.utileco.d.b(bytess[20]).toString()).toString();
+                    if (string2.length() == 8) {
+                        String strSubstring = string2.substring(0, 4);
+                        Intrinsics.checkNotNullExpressionValue(strSubstring, "substring(...)");
+                        if (StringsKt.contains$default((CharSequence) strSubstring, (CharSequence) DiskLruCache.VERSION, false, 2, (Object) null)) {
+                            String strSubstring2 = string2.substring(0, 1);
+                            Intrinsics.checkNotNullExpressionValue(strSubstring2, "substring(...)");
+                            String strSubstring3 = string2.substring(1, 2);
+                            Intrinsics.checkNotNullExpressionValue(strSubstring3, "substring(...)");
+                            String strSubstring4 = string2.substring(2, 3);
+                            Intrinsics.checkNotNullExpressionValue(strSubstring4, "substring(...)");
+                            String strSubstring5 = string2.substring(3, 4);
+                            Intrinsics.checkNotNullExpressionValue(strSubstring5, "substring(...)");
+                            String strSubstring6 = string2.substring(4, 5);
+                            Intrinsics.checkNotNullExpressionValue(strSubstring6, "substring(...)");
+                            String strSubstring7 = string2.substring(5, 6);
+                            Intrinsics.checkNotNullExpressionValue(strSubstring7, "substring(...)");
+                            BleDataFactoryEco.INSTANCE.getSpeedGearsModeEco().setValue(new SpeedGearsBRse(strSubstring2, strSubstring3, strSubstring4, strSubstring5, strSubstring6, strSubstring7));
+                        }
+                    }
+                }
+                int i24 = bytess.length > 21 ? bytess[21] & 255 : -100;
+                BleDataFactoryEco bleDataFactoryEco2 = BleDataFactoryEco.INSTANCE;
+                bleDataFactoryEco2.getMeter2DataEco().setValue(new Meter2ma(dTake2Data, dTake2Data2, dTake2Data3, dTake2Data4, dTake2Data5, iTake2Data, dTake2Data6, i21, i22, i23, i24));
+                string = "notifyBleData() 仪表2 returned: " + bleDataFactoryEco2.getMeter2DataEco().getValue();
+                showBleDataLog(string);
+            }
+            if (bytess.length < 17) {
+                return;
+            }
+            String string3 = StringsKt.reversed((CharSequence) com.eco.ecoroad.utileco.d.b(bytess[5]).toString()).toString();
+            if (string3.length() == 8) {
+                String strSubstring8 = string3.substring(0, 1);
+                Intrinsics.checkNotNullExpressionValue(strSubstring8, "substring(...)");
+                int iStr22Int = NumberStrUt.str22Int(strSubstring8);
+                String strSubstring9 = string3.substring(1, 2);
+                Intrinsics.checkNotNullExpressionValue(strSubstring9, "substring(...)");
+                int iStr22Int2 = NumberStrUt.str22Int(strSubstring9);
+                String strSubstring10 = string3.substring(2, 3);
+                Intrinsics.checkNotNullExpressionValue(strSubstring10, "substring(...)");
+                int iStr22Int3 = NumberStrUt.str22Int(strSubstring10);
+                String strSubstring11 = string3.substring(3, 4);
+                Intrinsics.checkNotNullExpressionValue(strSubstring11, "substring(...)");
+                int iStr22Int4 = NumberStrUt.str22Int(strSubstring11);
+                String strSubstring12 = string3.substring(4, 5);
+                Intrinsics.checkNotNullExpressionValue(strSubstring12, "substring(...)");
+                int iStr22Int5 = NumberStrUt.str22Int(strSubstring12);
+                BleDataFactoryEco bleDataFactoryEco3 = BleDataFactoryEco.INSTANCE;
+                bleDataFactoryEco3.getMeter1CarLight1DataEco().setValue(new Meter1CarLightThg(iStr22Int, iStr22Int2, iStr22Int3, iStr22Int4, iStr22Int5));
+                showBleDataLog("仪表1速度，灯光状态() light =" + bleDataFactoryEco3.getMeter1CarLight1DataEco().getValue());
+            }
+            String string4 = StringsKt.reversed((CharSequence) com.eco.ecoroad.utileco.d.b(bytess[6]).toString()).toString();
+            if (string4.length() == 8) {
+                String strSubstring13 = string4.substring(0, 1);
+                Intrinsics.checkNotNullExpressionValue(strSubstring13, "substring(...)");
+                int iStr22Int6 = NumberStrUt.str22Int(strSubstring13);
+                String strSubstring14 = string4.substring(1, 2);
+                Intrinsics.checkNotNullExpressionValue(strSubstring14, "substring(...)");
+                int iStr22Int7 = NumberStrUt.str22Int(strSubstring14);
+                String strSubstring15 = string4.substring(3, 4);
+                Intrinsics.checkNotNullExpressionValue(strSubstring15, "substring(...)");
+                int iStr22Int8 = NumberStrUt.str22Int(strSubstring15);
+                String strSubstring16 = string4.substring(4, 5);
+                Intrinsics.checkNotNullExpressionValue(strSubstring16, "substring(...)");
+                int iStr22Int9 = NumberStrUt.str22Int(strSubstring16);
+                String strSubstring17 = string4.substring(5, 6);
+                Intrinsics.checkNotNullExpressionValue(strSubstring17, "substring(...)");
+                int iStr22Int10 = NumberStrUt.str22Int(strSubstring17);
+                String strSubstring18 = string4.substring(6, 7);
+                Intrinsics.checkNotNullExpressionValue(strSubstring18, "substring(...)");
+                int iStr22Int11 = NumberStrUt.str22Int(strSubstring18);
+                String strSubstring19 = string4.substring(7, 8);
+                Intrinsics.checkNotNullExpressionValue(strSubstring19, "substring(...)");
+                int iStr22Int12 = NumberStrUt.str22Int(strSubstring19);
+                BleDataFactoryEco bleDataFactoryEco4 = BleDataFactoryEco.INSTANCE;
+                bleDataFactoryEco4.getMeter1CarStatus1DataEco().setValue(new Meter1CarStatusUst(iStr22Int6, iStr22Int7, iStr22Int8, iStr22Int9, iStr22Int10, iStr22Int11, iStr22Int12));
+                showBleDataLog("仪表1速度，车辆状态1() faultInfo =" + bleDataFactoryEco4.getMeter1CarStatus1DataEco().getValue() + ',');
+            }
+            int i25 = bytess[7] & 255;
+            if (i25 != 0) {
+                BleDataFactoryEco.INSTANCE.getFaultInfoEco().setValue(Integer.valueOf(i25));
+                showBleDataLog("故障代码() returned: code = " + i25 + ",errorCode = " + this.oldErrorCode);
+            }
+            byte b6 = bytess[8];
+            if (b6 < 0) {
+                b6 = 0;
+            }
+            if (b6 > 100) {
+                b6 = 100;
+            }
+            BleDataFactoryEco bleDataFactoryEco5 = BleDataFactoryEco.INSTANCE;
+            bleDataFactoryEco5.getRemainingPowerEco().setValue(Integer.valueOf(b6));
+            showBleDataLog("仪表1速度，故障信息，剩余电量() faultInfo =" + bleDataFactoryEco5.getFaultInfoEco().getValue() + ",remainingPower=" + bleDataFactoryEco5.getRemainingPowerEco().getValue());
+            int i26 = bytess[12] & 255;
+            bleDataFactoryEco5.getCurrentSpeedLimitEco().setValue(Integer.valueOf(i26));
+            showBleDataLog("仪表1限速() currentSpeedLimit =" + i26);
+            String string5 = StringsKt.reversed((CharSequence) com.eco.ecoroad.utileco.d.b(bytess[13]).toString()).toString();
+            if (string5.length() == 8) {
+                String strSubstring20 = string5.substring(0, 2);
+                Intrinsics.checkNotNullExpressionValue(strSubstring20, "substring(...)");
+                String string6 = StringsKt.reversed((CharSequence) strSubstring20).toString();
+                String strSubstring21 = string6.substring(0, 1);
+                Intrinsics.checkNotNullExpressionValue(strSubstring21, "substring(...)");
+                int iStr22Int13 = NumberStrUt.str22Int(strSubstring21);
+                String strSubstring22 = string6.substring(1, 2);
+                Intrinsics.checkNotNullExpressionValue(strSubstring22, "substring(...)");
+                int iE = com.eco.ecoroad.utileco.d.e(iStr22Int13, NumberStrUt.str22Int(strSubstring22));
+                byte b7 = bytess[9];
+                double dTake2Data7 = take2Data(((double) com.eco.ecoroad.utileco.d.a(b7, (byte) iE)) * 0.1d);
+                showBleDataLog("notifyBleData() returned:speedHigh = " + string6 + ",speedHigh = " + ((int) Byte.parseByte(string6)) + ",speedLow = " + ((int) b7) + ",speed =" + dTake2Data7);
+                String strSubstring23 = string5.substring(2, 4);
+                Intrinsics.checkNotNullExpressionValue(strSubstring23, "substring(...)");
+                String string7 = StringsKt.reversed((CharSequence) strSubstring23).toString();
+                String strSubstring24 = string7.substring(0, 1);
+                Intrinsics.checkNotNullExpressionValue(strSubstring24, "substring(...)");
+                int iStr22Int14 = NumberStrUt.str22Int(strSubstring24);
+                String strSubstring25 = string7.substring(1, 2);
+                Intrinsics.checkNotNullExpressionValue(strSubstring25, "substring(...)");
+                double dTake2Data8 = take2Data(((double) com.eco.ecoroad.utileco.d.a(bytess[10], (byte) com.eco.ecoroad.utileco.d.e(iStr22Int14, NumberStrUt.str22Int(strSubstring25)))) * 0.1d);
+                this.speedListDouble.add(Double.valueOf(dTake2Data7));
+                CollectionsKt.sort(this.speedListDouble);
+                if (this.speedListDouble.size() > 5000) {
+                    this.speedListDouble.clear();
+                }
+                String strSubstring26 = string5.substring(4, 6);
+                Intrinsics.checkNotNullExpressionValue(strSubstring26, "substring(...)");
+                String string8 = StringsKt.reversed((CharSequence) strSubstring26).toString();
+                String strSubstring27 = string8.substring(0, 1);
+                Intrinsics.checkNotNullExpressionValue(strSubstring27, "substring(...)");
+                int iStr22Int15 = NumberStrUt.str22Int(strSubstring27);
+                String strSubstring28 = string8.substring(1, 2);
+                Intrinsics.checkNotNullExpressionValue(strSubstring28, "substring(...)");
+                short sA = com.eco.ecoroad.utileco.d.a(bytess[11], (byte) com.eco.ecoroad.utileco.d.e(iStr22Int15, NumberStrUt.str22Int(strSubstring28)));
+                showBleDataLog("仪表1速度，平均，剩余充电() speed =" + dTake2Data7 + ",averageSpeed=" + dTake2Data8 + ",remainingCharging=" + ((int) sA));
+                if (this.speedListDouble.size() > 0) {
+                    ArrayList<Double> arrayList = this.speedListDouble;
+                    i5 = 1;
+                    dDoubleValue = arrayList.get(arrayList.size() - 1).doubleValue();
+                } else {
+                    i5 = 1;
+                    dDoubleValue = dTake2Data7;
+                }
+                bleDataFactoryEco5.getMeter1SpeedDataEco().setValue(new Meter1CarSpeedDee(dTake2Data7, dTake2Data8, dDoubleValue, sA));
+            } else {
+                i5 = 1;
+            }
+            String string9 = StringsKt.reversed((CharSequence) com.eco.ecoroad.utileco.d.b(bytess[14]).toString()).toString();
+            String string10 = StringsKt.reversed((CharSequence) com.eco.ecoroad.utileco.d.b(bytess[15]).toString()).toString();
+            if (string9.length() == 8) {
+                bleDataFactoryEco5.getMeter1BmsDataEco().setValue(string9);
+            }
+            if (string10.length() == 8) {
+                String strSubstring29 = string10.substring(0, 3);
+                Intrinsics.checkNotNullExpressionValue(strSubstring29, "substring(...)");
+                String strSubstring30 = string10.substring(3, 4);
+                Intrinsics.checkNotNullExpressionValue(strSubstring30, "substring(...)");
+                int iStr22Int16 = NumberStrUt.str22Int(strSubstring30);
+                String strSubstring31 = string10.substring(4, 5);
+                Intrinsics.checkNotNullExpressionValue(strSubstring31, "substring(...)");
+                int iStr22Int17 = NumberStrUt.str22Int(strSubstring31);
+                String strSubstring32 = string10.substring(5, 8);
+                Intrinsics.checkNotNullExpressionValue(strSubstring32, "substring(...)");
+                int iStr22Int18 = NumberStrUt.str22Int(strSubstring32);
+                switch (strSubstring29.hashCode()) {
+                    case 47664:
+                        strSubstring29.equals("000");
+                        Unit unit = Unit.INSTANCE;
+                        i6 = 0;
+                        break;
+                    case 47695:
+                        if (!strSubstring29.equals("010")) {
+                            Unit unit2 = Unit.INSTANCE;
+                            i6 = 0;
+                        } else {
+                            Unit unit3 = Unit.INSTANCE;
+                            i6 = 2;
+                        }
+                        break;
+                    case 48625:
+                        if (!strSubstring29.equals("100")) {
+                            Unit unit4 = Unit.INSTANCE;
+                            i6 = 0;
+                        } else {
+                            Unit unit5 = Unit.INSTANCE;
+                            i6 = i5;
+                        }
+                        break;
+                    case 48656:
+                        if (!strSubstring29.equals("110")) {
+                            Unit unit6 = Unit.INSTANCE;
+                            i6 = 0;
+                        } else {
+                            Unit unit7 = Unit.INSTANCE;
+                            i6 = 3;
+                        }
+                        break;
+                    default:
+                        Unit unit8 = Unit.INSTANCE;
+                        i6 = 0;
+                        break;
+                }
+                if (iStr22Int16 == 0) {
+                    PreferenceEcoUt preferenceEcoUt = PreferenceEcoUt.INSTANCE;
+                    preferenceEcoUt.submitStrValue(PreferenceEcoUt.UNIT_ECO, "km/h");
+                    preferenceEcoUt.submitStrValue(PreferenceEcoUt.UNIT_MILEAGE_ECO, "Km");
+                } else {
+                    PreferenceEcoUt preferenceEcoUt2 = PreferenceEcoUt.INSTANCE;
+                    preferenceEcoUt2.submitStrValue(PreferenceEcoUt.UNIT_ECO, "mph");
+                    preferenceEcoUt2.submitStrValue(PreferenceEcoUt.UNIT_MILEAGE_ECO, "Mi");
+                }
+                if (iStr22Int18 == 0) {
+                    i7 = 0;
+                } else if (iStr22Int18 == 10) {
+                    i7 = 2;
+                } else if (iStr22Int18 == 100) {
+                    i7 = i5;
+                } else if (iStr22Int18 != 110) {
+                    i7 = 0;
+                } else {
+                    i7 = 3;
+                }
+                bleDataFactoryEco5.getMeter1CarStatus2DataEco().setValue(new Meter1CarStatusStu(i6, iStr22Int16, i7, iStr22Int17));
+                showBleDataLog("仪表1 车辆状态2数据() speedModeS =" + strSubstring29 + ",speedMode=" + i6 + ",unit=" + iStr22Int16 + ",electric =" + i7 + ",carStatus2 = " + string10);
+            }
+            String string11 = StringsKt.reversed((CharSequence) com.eco.ecoroad.utileco.d.b(bytess[16]).toString()).toString();
+            if (string11.length() == 8) {
+                String strSubstring33 = string11.substring(7, 8);
+                Intrinsics.checkNotNullExpressionValue(strSubstring33, "substring(...)");
+                int iStr22Int19 = NumberStrUt.str22Int(strSubstring33);
+                String strSubstring34 = string11.substring(6, 7);
+                Intrinsics.checkNotNullExpressionValue(strSubstring34, "substring(...)");
+                int iStr22Int20 = NumberStrUt.str22Int(strSubstring34);
+                String strSubstring35 = string11.substring(0, 4);
+                Intrinsics.checkNotNullExpressionValue(strSubstring35, "substring(...)");
+                int iStr22Int21 = NumberStrUt.str22Int(strSubstring35);
+                String strSubstring36 = string11.substring(5, 6);
+                Intrinsics.checkNotNullExpressionValue(strSubstring36, "substring(...)");
+                int iStr22Int22 = NumberStrUt.str22Int(strSubstring36);
+                String strSubstring37 = string11.substring(4, 5);
+                Intrinsics.checkNotNullExpressionValue(strSubstring37, "substring(...)");
+                int iStr22Int23 = NumberStrUt.str22Int(strSubstring37);
+                String strSubstring38 = string11.substring(3, 4);
+                Intrinsics.checkNotNullExpressionValue(strSubstring38, "substring(...)");
+                int iStr22Int24 = NumberStrUt.str22Int(strSubstring38);
+                String strSubstring39 = string11.substring(2, 3);
+                Intrinsics.checkNotNullExpressionValue(strSubstring39, "substring(...)");
+                bleDataFactoryEco5.getMeter1CarStatus3DataEco().setValue(new Meter1CarStatusAtu(iStr22Int21, 0, iStr22Int20, iStr22Int19, iStr22Int22, iStr22Int23, iStr22Int24, NumberStrUt.str22Int(strSubstring39)));
+                showBleDataLog("仪表1 车辆状态3数据()  zeroStart =" + iStr22Int19 + ",cruise=" + iStr22Int20 + ",lightMode=" + iStr22Int21 + ",carStatus3 =" + string11);
+            }
+            if (bytess.length > 17) {
+                String string12 = com.eco.ecoroad.utileco.d.b(bytess[17]).toString();
+                if (string12.length() == 8) {
+                    EcoBytesExpand ecoBytesExpand = EcoBytesExpand.INSTANCE;
+                    String strSubstring40 = string12.substring(0, 3);
+                    Intrinsics.checkNotNullExpressionValue(strSubstring40, "substring(...)");
+                    int iBinaryStringToDecimal = ecoBytesExpand.binaryStringToDecimal(strSubstring40);
+                    String strSubstring41 = string12.substring(3, 8);
+                    Intrinsics.checkNotNullExpressionValue(strSubstring41, "substring(...)");
+                    String strValueOf = String.valueOf(ecoBytesExpand.binaryStringToDecimal(strSubstring41));
+                    bleDataFactoryEco5.getProtocolVersionEco().setValue(iBinaryStringToDecimal + '.' + getVersionStr(strValueOf));
+                }
+                showBleDataLog("仪表1 通讯协议版本号()  protocolVersion =" + bleDataFactoryEco5.getProtocolVersionEco().getValue());
+            }
+            if (bytess.length > 18) {
+                String string13 = com.eco.ecoroad.utileco.d.b(bytess[18]).toString();
+                if (string13.length() == 8) {
+                    EcoBytesExpand ecoBytesExpand2 = EcoBytesExpand.INSTANCE;
+                    String strSubstring42 = string13.substring(0, 3);
+                    Intrinsics.checkNotNullExpressionValue(strSubstring42, "substring(...)");
+                    int iBinaryStringToDecimal2 = ecoBytesExpand2.binaryStringToDecimal(strSubstring42);
+                    String strSubstring43 = string13.substring(3, 8);
+                    Intrinsics.checkNotNullExpressionValue(strSubstring43, "substring(...)");
+                    int iBinaryStringToDecimal3 = ecoBytesExpand2.binaryStringToDecimal(strSubstring43);
+                    bleDataFactoryEco5.getMeterVersionEco().setValue(iBinaryStringToDecimal2 + '.' + getVersionStr(String.valueOf(iBinaryStringToDecimal3)));
+                }
+                showBleDataLog("仪表1 仪表软件版本号()  meterVersion =" + bleDataFactoryEco5.getMeterVersionEco().getValue());
+            }
+            if (bytess.length > 19) {
+                String string14 = com.eco.ecoroad.utileco.d.b(bytess[19]).toString();
+                if (string14.length() == 8) {
+                    EcoBytesExpand ecoBytesExpand3 = EcoBytesExpand.INSTANCE;
+                    String strSubstring44 = string14.substring(0, 3);
+                    Intrinsics.checkNotNullExpressionValue(strSubstring44, "substring(...)");
+                    int iBinaryStringToDecimal4 = ecoBytesExpand3.binaryStringToDecimal(strSubstring44);
+                    String strSubstring45 = string14.substring(3, 8);
+                    Intrinsics.checkNotNullExpressionValue(strSubstring45, "substring(...)");
+                    int iBinaryStringToDecimal5 = ecoBytesExpand3.binaryStringToDecimal(strSubstring45);
+                    bleDataFactoryEco5.getControllerVersionEco().setValue(iBinaryStringToDecimal4 + '.' + getVersionStr(String.valueOf(iBinaryStringToDecimal5)));
+                }
+                showBleDataLog("仪表1 控制器软件版本号()  controllerVersion =" + bleDataFactoryEco5.getControllerVersionEco().getValue());
+            }
+            if (bytess.length > 26) {
+                bleDataFactoryEco5.getCountryEco().setValue(Integer.valueOf(bytess[20] & 255));
+                showBleDataLog("仪表1 国家()  controllerVersion =" + bleDataFactoryEco5.getCountryEco().getValue());
+            }
+            if (bytess.length > 26) {
+                bleDataFactoryEco5.getMeterSuppliersEco().setValue(Integer.valueOf(bytess[21] & 255));
+                showBleDataLog("仪表1 仪表供应商()  controllerVersion =" + bleDataFactoryEco5.getMeterSuppliersEco().getValue());
+            }
+            if (bytess.length <= 26) {
+                return;
+            }
+            bleDataFactoryEco5.getControllerSuppliersEco().setValue(Integer.valueOf(bytess[22] & 255));
+            sb = new StringBuilder();
+            sb.append("仪表1 控制器供应商()  controllerVersion =");
+            controllerSuppliersEco = bleDataFactoryEco5.getControllerSuppliersEco();
+            sb.append(controllerSuppliersEco.getValue());
+            string = sb.toString();
+            showBleDataLog(string);
+        }
+    }
+
+    public final void obtianSupplier() {
+        NetSubscribersKt.rcSubscribe$default(EcoRequest.INSTANCE.getInstance().obtSupplierInfo(), false, new OnStart() { // from class: com.eco.ecoroad.pagerui.devicec.vm.e
+            @Override // kotlin.jvm.functions.Function0
+            public final Unit invoke() {
+                return Unit.INSTANCE;
+            }
+        }, new OnNext() { // from class: com.eco.ecoroad.pagerui.devicec.vm.f
+            @Override // kotlin.jvm.functions.Function1
+            public final Unit invoke(Object obj) {
+                return EcoViewModel.obtianSupplier$lambda$5((EcoResponseMod) obj);
+            }
+        }, new OnError() { // from class: com.eco.ecoroad.pagerui.devicec.vm.g
+            @Override // kotlin.jvm.functions.Function1
+            public final Unit invoke(ApiException apiException) {
+                return EcoViewModel.obtianSupplier$lambda$6(apiException);
+            }
+        }, new OnComplete() { // from class: com.eco.ecoroad.pagerui.devicec.vm.h
+            @Override // kotlin.jvm.functions.Function0
+            public final Unit invoke() {
+                return Unit.INSTANCE;
+            }
+        }, null, 32, null);
+    }
+
+    public final void scanDevice() {
+        if (this.bleEcoService.getValue() == null) {
+            return;
+        }
+        BleEcoService value = this.bleEcoService.getValue();
+        Intrinsics.checkNotNull(value);
+        value.scanDev(new r0.i() { // from class: com.eco.ecoroad.pagerui.devicec.vm.EcoViewModel.scanDevice.1
+            @Override // r0.i
+            public void onLeScan(BleDevice bleDevice) {
+                Intrinsics.checkNotNullParameter(bleDevice, "bleDevice");
+                super.onLeScan(bleDevice);
+                EcoViewModel.this.getMScanStateMssta().setValue(102);
+            }
+
+            @Override // r0.i
+            public void onScanFinished(List<? extends BleDevice> scanResultList) {
+                Intrinsics.checkNotNullParameter(scanResultList, "scanResultList");
+                EcoViewModel.this.getMScanDeviceMSdDe().setValue(null);
+                EcoViewModel.this.getMScanStateMssta().setValue(104);
+            }
+
+            @Override // r0.j
+            public void onScanStarted(boolean success) {
+                EcoViewModel.this.getMScanStateMssta().setValue(Integer.valueOf(BleException.ERROR_CODE_GATT));
+                EcoViewModel.this.getMScanDeviceMSdDe().setValue(null);
+                EcoViewModel.this.getConnectedDevice();
+                if (EcoViewModel.this.mConnectedDeviceMcdv.getValue() != null) {
+                    EcoViewModel.this.getMScanDeviceMSdDe().setValue(EcoViewModel.this.mConnectedDeviceMcdv.getValue());
+                }
+            }
+
+            @Override // r0.j
+            public void onScanning(BleDevice bleDevice) {
+                Intrinsics.checkNotNullParameter(bleDevice, "bleDevice");
+                EcoViewModel.this.getMScanDeviceMSdDe().setValue(bleDevice);
+                EcoViewModel.this.getMScanStateMssta().setValue(103);
+                EcoViewModel.this.getConnectedDevice();
+                if (EcoViewModel.this.mConnectedDeviceMcdv.getValue() != null) {
+                    EcoViewModel.this.getMScanDeviceMSdDe().setValue(EcoViewModel.this.mConnectedDeviceMcdv.getValue());
+                }
+                EcoViewModel.this.getMScanStateMssta().setValue(103);
+            }
+        });
