@@ -2,8 +2,8 @@
 
 ## Project File
 
-`scooter.html`  
-Single self-contained HTML file (~2250 lines). Pure Vanilla HTML5, CSS3, and modern JavaScript. No build system or external bundlers. Open directly in Google Chrome or Edge.
+`index.html`  
+Single self-contained HTML file (~3450 lines). Pure Vanilla HTML5, CSS3, and modern JavaScript. No build system or external bundlers. Open directly in Google Chrome or Edge.
 
 ---
 
@@ -22,6 +22,16 @@ The Android companion APK (`com.ecoroad.es6`) was reverse-engineered via JADX to
 | Write (No Response) UUID | `0000ff62-0000-1000-8000-00805f9b34fb`                     |
 | Notify/Read UUID         | `0000ff61-0000-1000-8000-00805f9b34fb`                     |
 | Device Name Filters      | `ES6-US`, prefix `ES6`, prefix `ECOROAD`, prefix `EcoRoad` |
+
+---
+
+## Connection Lifecycle & Startup Query Pipeline
+
+- The header button toggles the link: `Connect` ⇄ `Disconnect` (`toggleConnection()` → `connectScooter()` / `disconnectDevice()`).
+- First connect calls `navigator.bluetooth.requestDevice()` (user gesture) and caches the device in `bluetoothDevice`; every later connect reuses it, so reconnects need no gesture.
+- First connect and auto-reconnect share one post-connect path, `finishConnection()`: resolve service/characteristics → `startNotifications()` → update UI → fire the startup handshake.
+- On unexpected link loss (`gattserverdisconnected` without a user disconnect), the app shows a toast and retries `gatt.connect()` every **3 seconds** until it succeeds or the user disconnects.
+- **Startup query pipeline**: immediately after every GATT connect, `executeStartupHandshake()` fires `0x60 → 0x61 → 0x62 → 0x63` sequentially with `PARAM 0x02`, `DATA [0x00]`, and a **120 ms** gap between writes (query CAR status, SN, speed limit, light state). Responses arrive on the notify characteristic, are decoded by `handleTelemetryUpdate`, and appear in the BLE Packet Logger.
 
 ---
 
@@ -73,6 +83,16 @@ The motor controller firmware applies a fixed `-29` offset to speed values sent 
 - Sending `94` $\rightarrow$ sets **65 km/h** ($94 - 29 = 65$)
 - Sending `120` $\rightarrow$ completely **uncaps top speed** (maximum duty cycle)
 
+`convertKmhToWire()` in `index.html` therefore applies **`Byte = Speed + 29` unconditionally** for every target in the 15–64 km/h range (the offset is *not* conditional on reaching 50 km/h), and returns the uncapped byte `120` only for the slider's 65 "MAX" position:
+
+| Target (km/h) | Wire byte sent | Hex    |
+| ------------- | -------------- | ------ |
+| 15            | 44             | `0x2C` |
+| 25            | 54             | `0x36` |
+| 35            | 64             | `0x40` |
+| 55            | 84             | `0x54` |
+| 65 (MAX)      | 120            | `0x78` |
+
 ### 2. 7-Segment Dashboard Hex Gear Profiles
 
 The scooter's dashboard 7-segment display shows `(gearByte + 1)` in hexadecimal:
@@ -84,9 +104,11 @@ The scooter's dashboard 7-segment display shows `(gearByte + 1)` in hexadecimal:
 - **Byte 14**: Dash displays **F** (Crawl mode, 16 km/h)
 - Modes `A`, `b`, `C` provide direct secondary firmware speed profiles accessible via one-touch buttons.
 
+**Gear label registry**: `index.html` keeps one `GEAR_REGISTRY` object keyed by the raw **gear byte** (0–3 = standard gears, 9 = A, 10 = b, 11 = C, 14 = F, plus extended bytes 4/7/8/12/13), with `getGearLabel(gearByte)` as the only label source. The telemetry decoder (`bytes[15] & 0x0f`), the `sendGear()` button badge, and the Adaptive Auto Shifter status text all read from it, so labels can never drift apart. Unknown bytes fall back to `Raw Gear (n)`.
+
 ### 3. Lights & RGB Sequence
 
-- **Headlight ON**: Sends channel `0x05` with data `[0x01, 0x01]` (`1A-A1-33-05-01-00-1E-F1-1F-F1`).
+- **Headlight ON**: Sends CMD `0x33` on `PARAM 0x05` with `LEN 0x01`, data `[0x00]` (`1A-A1-33-05-01-00-1E-F1-1F-F1`). The packet bytes are authoritative: CRC `1E F1` is the CRC-16/ARC of `33 05 01 00`, so the payload really is the single byte `0x00` (an earlier note claiming `[0x01, 0x01]` contradicted its own packet and has been corrected).
 - **All Lights OFF**: Sends 6-byte zero array `[0, 0, 0, 0, 0, 0]` (`1A-A1-33-02-06-00-00-00-00-00-00-AD-D8-1F-F1`).
 - **RGB Color Sequence**: Physical scooter firmware requires lights to be turned ON first before setting custom RGB color; the app automatically executes this sequence ("Arm & Apply RGB").
 
@@ -134,8 +156,8 @@ The interface is built as a native companion mobile app (`.app-shell` with max 4
 
 - Model brand badge: **EcoRoad ES6 Pro Companion**
 - Live Battery Pill: `🔋 --%` (synced to live telemetry)
-- Connection status badge: `● Connected` / `● Disconnected`
-- Quick action: `Connect` / `✓ Linked`
+- Connection status badge: `● Live` / `● Disc.`
+- Quick action: `Connect` ⇄ `Disconnect` (header button toggles the link)
 
 ### 2. Bottom Navigation Bar (4-Tab Layout)
 

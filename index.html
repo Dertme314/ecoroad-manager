@@ -950,7 +950,7 @@
             style="margin: 0; padding: 4px 7px; font-size: 10px"
             >● Disc.</span
           >
-          <button id="btn-connect" onclick="connectScooter()">Connect</button>
+          <button id="btn-connect" onclick="toggleConnection()">Connect</button>
         </div>
       </header>
 
@@ -2459,12 +2459,7 @@
           const status = document.getElementById("auto-gear-status-text");
           const isUp = targetGear > currentGearBits;
           const shiftType = isUp ? "▲ Upshifting" : "▼ Downshifting";
-          let label = "Gear " + (targetGear + 1);
-          if (targetGear === 0) label = "Gear 1 (Eco)";
-          else if (targetGear === 1) label = "Gear 2 (Drive)";
-          else if (targetGear === 2) label = "Gear 3 (Turbo)";
-          else if (targetGear === 3) label = "Gear 4 (Sport)";
-          else if (targetGear === 11) label = "Mode C (Overdrive 🔥)";
+          const label = getGearLabel(targetGear);
 
           if (status) {
             status.innerText = `${shiftType} to ${label} @ ${speedKmh.toFixed(1)} km/h`;
@@ -2513,6 +2508,30 @@
         START_OTA: 0x91,
         QUERY_OTA: 0x92,
       };
+
+      // ─── Gear Registry (single source of truth, keyed by gear byte) ─────────
+      // Telemetry gear byte = bytes[15] & 0x0f; dashboard shows (byte + 1) in hex.
+      const GEAR_REGISTRY = {
+        0: { label: "Gear 1 · Eco", speed: 26, group: "standard" },
+        1: { label: "Gear 2 · Drive", speed: 35, group: "standard" },
+        2: { label: "Gear 3 · Turbo", speed: 45, group: "standard" },
+        3: { label: "Gear 4 · Sport", speed: 50, group: "standard" },
+        4: { label: "Mode '5'", speed: null, group: "extended" },
+        7: { label: "Mode '8'", speed: null, group: "extended" },
+        8: { label: "Mode '9'", speed: null, group: "extended" },
+        9: { label: "Mode A", speed: 26, group: "dash" },
+        10: { label: "Mode b", speed: 37, group: "dash" },
+        11: { label: "Mode C", speed: 50, group: "dash" },
+        12: { label: "Mode 'd'", speed: null, group: "extended" },
+        13: { label: "Mode 'E'", speed: null, group: "extended" },
+        14: { label: "Mode 'F'", speed: 16, group: "extended" },
+      };
+
+      function getGearLabel(gearByte) {
+        const entry = GEAR_REGISTRY[gearByte];
+        if (!entry) return "Raw Gear (" + gearByte + ")";
+        return entry.speed ? entry.label + " (" + entry.speed + ")" : entry.label;
+      }
 
       // ─── RGB State ───────────────────────────────────────────────────────────
       let rgbMode = 0;
@@ -2567,12 +2586,141 @@
         updateRgbPreview();
       }
 
-      // ─── BLE Connection ──────────────────────────────────────────────────────
-      async function connectScooter() {
+      // ─── BLE Connection, Disconnect & Auto-Reconnect ─────────────────────────
+      let bluetoothDevice = null;
+      let gattServer = null;
+      let isUserDisconnect = false;
+      let reconnectTimer = null;
+      let deviceListenerAttached = false;
+
+      function clearPendingReconnect() {
+        if (reconnectTimer) {
+          clearTimeout(reconnectTimer);
+          reconnectTimer = null;
+        }
+      }
+
+      // Single source of truth for the header pill + Connect/Disconnect button
+      function updateConnectionUI(connected) {
         const pill = document.getElementById("conn-pill");
         const btn = document.getElementById("btn-connect");
-        // Friendly message instead of a cryptic TypeError on browsers
-        // without Web Bluetooth (iOS Safari, Firefox, etc.)
+        const live = document.getElementById("live-flag");
+        if (connected) {
+          pill.innerText = "● Live";
+          pill.className = "status-pill online";
+          btn.innerText = "Disconnect";
+          btn.title = "Disconnect from the scooter";
+          btn.style.background = "#2b0c10";
+          btn.style.color = "#ff334b";
+          btn.style.border = "1px solid rgba(255, 51, 75, 0.4)";
+        } else {
+          pill.innerText = "● Disc.";
+          pill.className = "status-pill offline";
+          btn.innerText = "Connect";
+          btn.title = "Connect to the scooter";
+          btn.style.background = "";
+          btn.style.color = "";
+          btn.style.border = "";
+          writeCharacteristic = null;
+          readCharacteristic = null;
+          if (live) {
+            live.innerText = "Awaiting Signal";
+            live.className = "status-pill";
+          }
+        }
+      }
+
+      // Header button: tap to connect, tap again to disconnect
+      function toggleConnection() {
+        if (gattServer && gattServer.connected) disconnectDevice();
+        else connectScooter();
+      }
+
+      function disconnectDevice() {
+        isUserDisconnect = true;
+        clearPendingReconnect();
+        if (gattServer && gattServer.connected) gattServer.disconnect();
+        updateConnectionUI(false);
+      }
+
+      function setupDeviceListeners(device) {
+        if (deviceListenerAttached) return;
+        device.addEventListener("gattserverdisconnected", onDisconnected);
+        deviceListenerAttached = true;
+      }
+
+      function onDisconnected() {
+        updateConnectionUI(false);
+        if (isUserDisconnect || !bluetoothDevice) return;
+        showToast("Connection lost — retrying in 3s…", "warn", 4000);
+        scheduleReconnect();
+      }
+
+      function scheduleReconnect() {
+        if (reconnectTimer || isUserDisconnect || !bluetoothDevice) return;
+        reconnectTimer = setTimeout(async () => {
+          reconnectTimer = null;
+          try {
+            const server = await bluetoothDevice.gatt.connect();
+            await finishConnection(server);
+            showToast(
+              "Reconnected to " + (bluetoothDevice.name || "scooter"),
+              "success",
+            );
+          } catch (err) {
+            console.warn("Auto-reconnect failed:", err && err.message);
+            scheduleReconnect(); // keep trying until the user gives up
+          }
+        }, 3000);
+      }
+
+      // Shared post-connect path: first connect and auto-reconnect both land here
+      async function finishConnection(server) {
+        gattServer = server;
+        const service = await server.getPrimaryService(SERVICE_UUID);
+        writeCharacteristic = await service.getCharacteristic(WRITE_UUID);
+        readCharacteristic = await service.getCharacteristic(READ_UUID);
+        await readCharacteristic.startNotifications();
+        readCharacteristic.removeEventListener(
+          "characteristicvaluechanged",
+          handleTelemetryUpdate,
+        );
+        readCharacteristic.addEventListener(
+          "characteristicvaluechanged",
+          handleTelemetryUpdate,
+        );
+        updateConnectionUI(true);
+        executeStartupHandshake();
+      }
+
+      // Fires the 0x60 → 0x61 → 0x62 → 0x63 query pipeline after every GATT
+      // connect (120ms between writes). Responses come back through
+      // handleTelemetryUpdate and land in the BLE Packet Logger.
+      async function executeStartupHandshake() {
+        const queries = [
+          { cmd: CMD.QUERY_CAR, name: "QUERY_CAR" },
+          { cmd: CMD.QUERY_SN, name: "QUERY_SN" },
+          { cmd: CMD.QUERY_SPEED, name: "QUERY_SPEED_LIMIT" },
+          { cmd: CMD.QUERY_LIGHT, name: "QUERY_LIGHT" },
+        ];
+        for (const q of queries) {
+          if (!writeCharacteristic) return; // disconnected mid-handshake
+          try {
+            await sendPacket(
+              buildDynamicFrame(q.cmd, 0x02, new Uint8Array([0x00])),
+              q.name,
+            );
+          } catch (err) {
+            console.warn(q.name + " failed:", err && err.message);
+          }
+          await new Promise((r) => setTimeout(r, 120));
+        }
+      }
+
+      // Friendly message instead of a cryptic TypeError on browsers without
+      // Web Bluetooth (iOS Safari, Firefox, etc.)
+      async function connectScooter() {
+        const pill = document.getElementById("conn-pill");
         if (!navigator.bluetooth) {
           showToast(
             "Web Bluetooth isn't supported in this browser. Open this site in Chrome or Edge (iOS Safari is not supported).",
@@ -2581,50 +2729,30 @@
           );
           return;
         }
+        clearPendingReconnect();
+        isUserDisconnect = false;
         pill.innerText = "● Scanning...";
         pill.className = "status-pill";
         try {
-          const device = await navigator.bluetooth.requestDevice({
-            filters: [
-              { name: "ES6-US" },
-              { namePrefix: "ES6" },
-              { namePrefix: "ECOROAD" },
-              { namePrefix: "EcoRoad" },
-            ],
-            optionalServices: [SERVICE_UUID],
-          });
+          // Reuse an already-authorized device so reconnects need no gesture
+          if (!bluetoothDevice) {
+            bluetoothDevice = await navigator.bluetooth.requestDevice({
+              filters: [
+                { name: "ES6-US" },
+                { namePrefix: "ES6" },
+                { namePrefix: "ECOROAD" },
+                { namePrefix: "EcoRoad" },
+              ],
+              optionalServices: [SERVICE_UUID],
+            });
+            setupDeviceListeners(bluetoothDevice);
+          }
           pill.innerText = "● GATT…";
-          const server = await device.gatt.connect();
-          const service = await server.getPrimaryService(SERVICE_UUID);
-          writeCharacteristic = await service.getCharacteristic(WRITE_UUID);
-          readCharacteristic = await service.getCharacteristic(READ_UUID);
-          await readCharacteristic.startNotifications();
-          readCharacteristic.addEventListener(
-            "characteristicvaluechanged",
-            handleTelemetryUpdate,
-          );
-          pill.innerText = "● Live";
-          pill.className = "status-pill online";
-          btn.innerText = "✓ Linked";
-          btn.style.background = "#142232";
-          btn.style.color = "var(--primary)";
-          showToast("Connected to " + device.name, "success");
-          device.addEventListener("gattserverdisconnected", () => {
-            pill.innerText = "● Disc.";
-            pill.className = "status-pill offline";
-            btn.innerText = "Connect";
-            btn.style.background = "";
-            btn.style.color = "";
-            const live = document.getElementById("live-flag");
-            if (live) {
-              live.innerText = "Awaiting Signal";
-              live.className = "status-pill";
-            }
-            showToast("Scooter disconnected", "warn", 4000);
-          });
+          const server = await bluetoothDevice.gatt.connect();
+          await finishConnection(server);
+          showToast("Connected to " + bluetoothDevice.name, "success");
         } catch (error) {
-          pill.innerText = "● Disc.";
-          pill.className = "status-pill offline";
+          updateConnectionUI(false);
           if (error.name !== "NotFoundError") {
             showToast("Connection failed: " + error.message, "error", 5000);
           }
@@ -2722,18 +2850,9 @@
             const limitEl = document.getElementById("hud-current-limit");
             if (limitEl && curLimit > 0) limitEl.innerText = curLimit + " km/h";
 
-            // 5. Drive Gear (bytes[15] bits 0-3):
+            // 5. Drive Gear (bytes[15] bits 0-3) — labels come from GEAR_REGISTRY
             const gearBits = bytes[15] & 0x0f;
-            let gearName = "Gear " + (gearBits + 1);
-            if (gearBits === 0) gearName = "1 (Eco · 26)";
-            else if (gearBits === 1) gearName = "2 (Drive · 35)";
-            else if (gearBits === 2) gearName = "3 (Turbo · 45)";
-            else if (gearBits === 3) gearName = "4 (Sport · 50)";
-            else if (gearBits === 9) gearName = "A (Eco · 26)";
-            else if (gearBits === 10) gearName = "b (Mid · 37)";
-            else if (gearBits === 11) gearName = "C (Sport · 50 🔥)";
-            else if (gearBits === 14) gearName = "F (Crawl · 16)";
-            else gearName = "Mode " + (gearBits + 1) + " (OD-" + gearBits + ")";
+            const gearName = getGearLabel(gearBits);
             const gearBadge = document.getElementById("gear-live-badge");
             if (gearBadge) gearBadge.innerText = gearName;
             const gearEl = document.getElementById("hud-gear");
@@ -3026,30 +3145,8 @@
         });
         const badge = document.getElementById("gear-live-badge");
         const hexChar = (gear + 1).toString(16).toUpperCase();
-        const names = {
-          0: "Eco (Disp 1)",
-          1: "Drive (Disp 2)",
-          2: "Turbo (Disp 3)",
-          3: "Sport (Disp 4)",
-          4: "OD·4 (Disp 5)",
-          7: "OD·7 (Disp 8, Sport)",
-          8: "OD·8 (Disp 9, Eco)",
-          9: "Mode A (Byte 9, Drive)",
-          10: "Mode b (Byte 10, Turbo)",
-          11: "Mode C (Byte 11, Sport)",
-          12: "Mode d (Byte 12, Eco)",
-          13: "Mode E (Byte 13, Drive)",
-          14: "Mode F (Byte 14, Turbo)",
-        };
         if (badge)
-          badge.innerText =
-            "Gear " +
-            gear +
-            " · Dash '" +
-            hexChar +
-            "' (" +
-            (names[gear] || "Byte " + gear) +
-            ")";
+          badge.innerText = getGearLabel(gear) + " · Dash '" + hexChar + "'";
         const customInp = document.getElementById("custom-gear-input");
         if (customInp) customInp.value = gear;
       }
@@ -3072,11 +3169,13 @@
       }
 
       function convertKmhToWire(targetKmh) {
-        targetKmh = Number(targetKmh);
-        // Compensate firmware -29 offset for unlocked speeds (50+ km/h)
-        if (targetKmh >= 60) return 120;
-        if (targetKmh >= 50) return targetKmh + 29; // 55 -> 84
-        return targetKmh; // standard 15, 25, 35
+        // Firmware applies a fixed -29 offset to every 0x36 speed value
+        // (confirmed: 55→26, 65→36, 84→55, 94→65 km/h), so the wire byte is
+        // always Speed + 29 across the whole 15-64 km/h range:
+        //   15 → 44 (0x2C) · 25 → 54 (0x36) · 35 → 64 (0x40) · 55 → 84 (0x54)
+        const speed = Math.min(65, Math.max(0, parseInt(targetKmh, 10) || 0));
+        if (speed >= 65) return 120; // slider MAX = firmware uncap (0x78)
+        return Math.min(255, speed + 29);
       }
 
       async function setSpeedLimitPreset(kmh) {
