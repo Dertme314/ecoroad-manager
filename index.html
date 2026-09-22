@@ -33,12 +33,10 @@
       * {
         box-sizing: border-box;
         -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
       }
       body {
-        font-family:
-          "Inter",
-          -apple-system,
-          sans-serif;
+        font-family: "Inter", -apple-system, sans-serif;
         background: #040508;
         color: var(--text-main);
         margin: 0;
@@ -46,17 +44,19 @@
         display: flex;
         justify-content: center;
         min-height: 100vh;
+        min-height: 100dvh;
         overflow-x: hidden;
       }
       .app-shell {
         width: 100%;
         max-width: 440px;
         min-height: 100vh;
+        min-height: 100dvh;
         display: flex;
         flex-direction: column;
         background: #090c14;
         position: relative;
-        padding-bottom: 78px;
+        padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px));
         box-shadow: 0 0 60px rgba(0, 0, 0, 0.9);
       }
       /* Sticky Topbar */
@@ -66,34 +66,38 @@
         z-index: 990;
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
-        background: rgba(9, 12, 20, 0.88);
+        background: rgba(9, 12, 20, 0.92);
         border-bottom: 1px solid var(--border-color);
-        padding: 12px 16px;
+        padding: 10px 14px;
+        padding-top: calc(10px + env(safe-area-inset-top, 0px));
         display: flex;
         justify-content: space-between;
         align-items: center;
+        gap: 8px;
       }
       .app-brand {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
+        flex-shrink: 0;
       }
       .app-brand-logo {
-        width: 32px;
-        height: 32px;
-        border-radius: 10px;
+        width: 30px;
+        height: 30px;
+        border-radius: 9px;
         background: linear-gradient(135deg, #00ff75, #00c0ff);
         display: flex;
         align-items: center;
         justify-content: center;
         font-weight: 900;
-        font-size: 16px;
+        font-size: 15px;
         color: #07090e;
-        box-shadow: 0 0 16px var(--primary-glow);
+        box-shadow: 0 0 14px var(--primary-glow);
+        flex-shrink: 0;
       }
       .app-brand-info h1 {
         font-family: "Outfit", sans-serif;
-        font-size: 16px;
+        font-size: 15px;
         font-weight: 800;
         letter-spacing: -0.3px;
         margin: 0;
@@ -101,6 +105,7 @@
         background: linear-gradient(135deg, #ffffff 40%, #00ff75 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
+        white-space: nowrap;
       }
       .app-brand-info .sub {
         font-size: 10px;
@@ -111,24 +116,31 @@
       .top-status-pills {
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 5px;
+        flex-shrink: 0;
+      }
+      /* Hide battery % label on very small screens */
+      @media (max-width: 370px) {
+        .top-badge-text { display: none; }
+        .app-brand-info .sub { display: none; }
       }
       .top-badge {
         font-size: 11px;
         font-weight: 700;
-        padding: 4px 8px;
+        padding: 4px 7px;
         border-radius: 6px;
         background: #141824;
         border: 1px solid var(--border-color);
         color: #cbd5e1;
         display: inline-flex;
         align-items: center;
-        gap: 4px;
+        gap: 3px;
+        white-space: nowrap;
       }
       #btn-connect {
         margin: 0;
         width: auto;
-        padding: 6px 12px;
+        padding: 7px 11px;
         font-size: 11px;
         font-weight: 700;
         border-radius: 8px;
@@ -138,10 +150,12 @@
         box-shadow: 0 0 12px var(--primary-glow);
         border: none;
         transition: all 0.2s ease;
+        white-space: nowrap;
+        flex-shrink: 0;
       }
-      #btn-connect:hover {
-        transform: translateY(-1px);
-        filter: brightness(1.1);
+      #btn-connect:active {
+        transform: scale(0.95);
+        filter: brightness(0.9);
       }
       /* App Tab Panes */
       .app-pane {
@@ -178,7 +192,7 @@
         border-top: 1px solid var(--border-color);
         display: flex;
         justify-content: space-around;
-        padding: 8px 6px calc(8px + env(safe-area-inset-bottom, 0px));
+        padding: 8px 4px calc(8px + env(safe-area-inset-bottom, 0px));
         z-index: 1000;
         box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.7);
       }
@@ -198,17 +212,15 @@
         border-radius: 12px;
         transition: all 0.18s ease;
         width: auto;
+        min-width: 56px;
       }
       .nav-tab-btn .nav-icon {
         font-size: 20px;
         line-height: 1;
         transition: transform 0.18s ease;
       }
-      .nav-tab-btn:hover {
-        color: #94a3b8;
-        transform: none;
-        box-shadow: none;
-        filter: none;
+      .nav-tab-btn:active {
+        transform: scale(0.9);
       }
       .nav-tab-btn.active {
         color: var(--primary);
@@ -220,8 +232,8 @@
       /* Hero Speedometer Arc */
       .speedo-gauge-wrap {
         position: relative;
-        width: 220px;
-        height: 180px;
+        width: min(220px, 72vw);
+        height: min(180px, 58vw);
         margin: 4px auto 0;
         display: flex;
         justify-content: center;
@@ -260,7 +272,7 @@
       }
       .speedo-val {
         font-family: "Outfit", sans-serif;
-        font-size: 56px;
+        font-size: clamp(40px, 14vw, 56px);
         font-weight: 800;
         line-height: 0.9;
         letter-spacing: -1.5px;
@@ -408,6 +420,9 @@
         grid-template-columns: repeat(4, 1fr);
         gap: 6px;
       }
+      @media (max-width: 380px) {
+        .btn-grid-4 { grid-template-columns: repeat(2, 1fr); }
+      }
       button {
         font-family: "Inter", sans-serif;
         background: var(--primary);
@@ -415,23 +430,24 @@
         border: none;
         font-size: 13px;
         font-weight: 700;
-        padding: 11px 12px;
+        padding: 12px 12px;
         border-radius: 8px;
         cursor: pointer;
-        transition: all 0.15s ease-in-out;
+        transition: filter 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
         display: flex;
         align-items: center;
         justify-content: center;
         gap: 6px;
         width: 100%;
+        -webkit-user-select: none;
+        user-select: none;
+        min-height: 44px;
       }
-      button:hover {
-        filter: brightness(1.1);
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px var(--primary-glow);
-      }
+      button:hover { filter: brightness(1.1); }
       button:active {
-        transform: translateY(0);
+        transform: scale(0.96);
+        filter: brightness(0.92);
+        box-shadow: none !important;
       }
       button.btn-off,
       button.btn-danger {
@@ -499,6 +515,7 @@
         letter-spacing: 0.3px;
         text-transform: uppercase;
         width: 100%;
+        min-height: 56px;
       }
       .btn-gear .gear-num {
         font-family: "Outfit", sans-serif;
@@ -508,15 +525,7 @@
         color: #3a4055;
         transition: color 0.18s;
       }
-      .btn-gear:hover {
-        border-color: var(--primary);
-        color: var(--primary);
-        transform: translateY(-2px);
-        box-shadow: 0 4px 16px rgba(0, 255, 117, 0.12);
-      }
-      .btn-gear:hover .gear-num {
-        color: var(--primary);
-      }
+      .btn-gear:active { transform: scale(0.94); }
       .btn-gear.gear-active {
         background: rgba(0, 255, 117, 0.08) !important;
         border-color: var(--primary) !important;
@@ -558,6 +567,7 @@
         letter-spacing: 0.3px;
         text-transform: uppercase;
         width: 100%;
+        min-height: 56px;
       }
       .btn-overdrive .gear-num {
         font-family: "Outfit", sans-serif;
@@ -567,15 +577,7 @@
         color: #7c3aed;
         transition: color 0.18s;
       }
-      .btn-overdrive:hover {
-        border-color: #c084fc;
-        background: linear-gradient(135deg, #2d1050, #3b1568);
-        transform: translateY(-2px);
-        box-shadow: 0 4px 20px rgba(155, 81, 224, 0.35);
-      }
-      .btn-overdrive:hover .gear-num {
-        color: #c084fc;
-      }
+      .btn-overdrive:active { transform: scale(0.94); }
       .btn-overdrive.gear-active {
         border-color: #c084fc !important;
         background: rgba(155, 81, 224, 0.15) !important;
@@ -624,35 +626,93 @@
       .slider-row {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
         font-size: 12px;
         color: var(--text-muted);
       }
       .slider-row label {
-        width: 12px;
+        width: 14px;
         font-weight: 700;
+        flex-shrink: 0;
       }
       .slider-row span {
-        width: 28px;
+        width: 30px;
         text-align: right;
         font-size: 12px;
         color: var(--text-main);
+        flex-shrink: 0;
       }
+      /* Taller, more touchable range sliders */
       input[type="range"] {
         flex: 1;
-        height: 4px;
-        border-radius: 2px;
+        height: 6px;
+        border-radius: 3px;
         cursor: pointer;
         accent-color: var(--primary);
+        -webkit-appearance: none;
+        appearance: none;
+        background: #2a3045;
+        outline: none;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--primary);
+        cursor: pointer;
+        box-shadow: 0 0 8px var(--primary-glow);
+        transition: transform 0.12s ease;
+      }
+      input[type="range"]::-webkit-slider-thumb:active {
+        transform: scale(1.2);
+      }
+      input[type="range"]::-moz-range-thumb {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--primary);
+        cursor: pointer;
+        border: none;
+        box-shadow: 0 0 8px var(--primary-glow);
       }
       input[type="color"] {
-        width: 36px;
-        height: 36px;
+        width: 40px;
+        height: 40px;
         border: none;
         border-radius: 8px;
         cursor: pointer;
         padding: 2px;
         background: #252a39;
+        flex-shrink: 0;
+      }
+      /* Styled selects */
+      select {
+        background: #141824;
+        border: 1px solid var(--border-color);
+        color: #e2e8f0;
+        padding: 8px 10px;
+        border-radius: 8px;
+        font-family: "Inter", sans-serif;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        -webkit-appearance: none;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238c96a8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        padding-right: 30px;
+        min-height: 40px;
+      }
+      select:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 2px var(--primary-glow);
+      }
+      input[type="text"],
+      input[type="number"] {
+        min-height: 40px;
       }
       .rgb-swatches {
         display: grid;
@@ -687,10 +747,11 @@
         font-size: 11px;
         color: #00ff75;
         text-align: left;
-        max-height: 180px;
+        max-height: 240px;
         overflow-y: auto;
         white-space: pre-wrap;
         word-break: break-all;
+        -webkit-overflow-scrolling: touch;
       }
       details > summary {
         font-size: 11px;
@@ -701,7 +762,10 @@
         letter-spacing: 0.4px;
         user-select: none;
         list-style: none;
-        padding: 6px 0;
+        padding: 8px 0;
+        min-height: 36px;
+        display: flex;
+        align-items: center;
       }
       details > summary::-webkit-details-marker {
         display: none;
@@ -718,11 +782,58 @@
         border-top: 1px solid rgba(255, 255, 255, 0.06);
         margin: 10px 0;
       }
+      /* Toast Notification System */
+      #toast-container {
+        position: fixed;
+        bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        pointer-events: none;
+        width: min(400px, calc(100vw - 32px));
+      }
+      .toast {
+        background: #1a1f2e;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 12px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-main);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+        animation: toastIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        pointer-events: auto;
+        width: 100%;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+      }
+      .toast.toast-success { border-color: rgba(0,255,117,0.4); }
+      .toast.toast-error   { border-color: rgba(255,51,75,0.4); color: #fca5a5; }
+      .toast.toast-info    { border-color: rgba(0,192,255,0.4); }
+      .toast.toast-out { animation: toastOut 0.22s ease-in forwards; }
+      @keyframes toastIn {
+        from { opacity: 0; transform: translateY(12px) scale(0.96); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      @keyframes toastOut {
+        to { opacity: 0; transform: translateY(8px) scale(0.95); }
+      }
+      /* Custom Inputs 2-col */
       .custom-inputs {
         display: grid;
-        grid-template-columns: 1fr 1fr 2fr;
+        grid-template-columns: 1fr 1fr;
         gap: 6px;
         margin-bottom: 8px;
+      }
+      .custom-inputs .custom-data-input {
+        grid-column: 1 / -1;
       }
       .custom-inputs input {
         font-family: "Courier New", monospace;
@@ -781,13 +892,13 @@
         </div>
         <div class="top-status-pills">
           <span class="top-badge" id="top-battery-badge">
-            🔋 <span id="top-bat-val">--%</span>
+            🔋 <span class="top-badge-text" id="top-bat-val">--%</span>
           </span>
           <span
             class="status-pill offline"
             id="conn-pill"
-            style="margin: 0; padding: 4px 8px; font-size: 10px"
-            >● Disconnected</span
+            style="margin: 0; padding: 4px 7px; font-size: 10px"
+            >● Disc.</span
           >
           <button id="btn-connect" onclick="connectScooter()">Connect</button>
         </div>
@@ -1021,8 +1132,8 @@
               <div
                 style="
                   display: grid;
-                  grid-template-columns: repeat(6, 1fr);
-                  gap: 4px;
+                  grid-template-columns: repeat(3, 1fr);
+                  gap: 6px;
                   margin-top: 8px;
                   margin-bottom: 8px;
                 "
@@ -1030,7 +1141,7 @@
                 <button
                   class="btn-secondary"
                   id="gear-od-4"
-                  style="padding: 6px 2px; font-size: 10px"
+                  style="font-size: 11px; padding: 10px 4px;"
                   onclick="sendGear(4)"
                 >
                   '5' (4)
@@ -1038,7 +1149,7 @@
                 <button
                   class="btn-secondary"
                   id="gear-od-7"
-                  style="padding: 6px 2px; font-size: 10px"
+                  style="font-size: 11px; padding: 10px 4px;"
                   onclick="sendGear(7)"
                 >
                   '8' (7)
@@ -1046,7 +1157,7 @@
                 <button
                   class="btn-secondary"
                   id="gear-od-8"
-                  style="padding: 6px 2px; font-size: 10px"
+                  style="font-size: 11px; padding: 10px 4px;"
                   onclick="sendGear(8)"
                 >
                   '9' (8)
@@ -1054,7 +1165,7 @@
                 <button
                   class="btn-secondary"
                   id="gear-od-12"
-                  style="padding: 6px 2px; font-size: 10px"
+                  style="font-size: 11px; padding: 10px 4px;"
                   onclick="sendGear(12)"
                 >
                   'd' (12)
@@ -1062,7 +1173,7 @@
                 <button
                   class="btn-secondary"
                   id="gear-od-13"
-                  style="padding: 6px 2px; font-size: 10px"
+                  style="font-size: 11px; padding: 10px 4px;"
                   onclick="sendGear(13)"
                 >
                   'E' (13)
@@ -1070,7 +1181,7 @@
                 <button
                   class="btn-secondary"
                   id="gear-od-14"
-                  style="padding: 6px 2px; font-size: 10px"
+                  style="font-size: 11px; padding: 10px 4px;"
                   onclick="sendGear(14)"
                 >
                   'F' (14)
@@ -1999,6 +2110,7 @@
             <input
               type="text"
               id="custom-data"
+              class="custom-data-input"
               placeholder="DATA bytes (e.g. 01 00 FF)"
             />
           </div>
@@ -2149,7 +2261,26 @@
       </nav>
     </div>
 
+    <!-- Toast notification container -->
+    <div id="toast-container"></div>
+
     <script>
+      // ─── Toast Notification System ────────────────────────────────────────
+      function showToast(msg, type = "info", duration = 3000) {
+        const container = document.getElementById("toast-container");
+        const icons = { success: "✅", error: "❌", info: "ℹ️", warn: "⚠️" };
+        const el = document.createElement("div");
+        el.className = `toast toast-${type === "warn" ? "error" : type}`;
+        el.innerHTML = `<span>${icons[type] || "ℹ️"}</span><span>${msg}</span>`;
+        container.appendChild(el);
+        const remove = () => {
+          el.classList.add("toast-out");
+          el.addEventListener("animationend", () => el.remove(), { once: true });
+        };
+        const timer = setTimeout(remove, duration);
+        el.addEventListener("click", () => { clearTimeout(timer); remove(); });
+      }
+
       // ─── Native App Tab Switching ──────────────────────────────────────────
       function switchAppTab(tabId) {
         const tabs = ["drive", "lights", "security", "settings"];
@@ -2165,7 +2296,7 @@
             else btn.classList.remove("active");
           }
         });
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        window.scrollTo({ top: 0, behavior: "instant" });
       }
 
       // ─── Adaptive Virtual Automatic Transmission ───────────────────────────
@@ -2394,7 +2525,7 @@
             ],
             optionalServices: [SERVICE_UUID],
           });
-          pill.innerText = "● Connecting GATT...";
+          pill.innerText = "● GATT…";
           const server = await device.gatt.connect();
           const service = await server.getPrimaryService(SERVICE_UUID);
           writeCharacteristic = await service.getCharacteristic(WRITE_UUID);
@@ -2404,13 +2535,14 @@
             "characteristicvaluechanged",
             handleTelemetryUpdate,
           );
-          pill.innerText = "● Connected";
+          pill.innerText = "● Live";
           pill.className = "status-pill online";
           btn.innerText = "✓ Linked";
           btn.style.background = "#142232";
           btn.style.color = "var(--primary)";
+          showToast("Connected to " + device.name, "success");
           device.addEventListener("gattserverdisconnected", () => {
-            pill.innerText = "● Disconnected";
+            pill.innerText = "● Disc.";
             pill.className = "status-pill offline";
             btn.innerText = "Connect";
             btn.style.background = "";
@@ -2420,11 +2552,14 @@
               live.innerText = "Awaiting Signal";
               live.className = "status-pill";
             }
+            showToast("Scooter disconnected", "warn", 4000);
           });
         } catch (error) {
-          pill.innerText = "● Link Failed";
+          pill.innerText = "● Disc.";
           pill.className = "status-pill offline";
-          alert("Connection error: " + error.message);
+          if (error.name !== "NotFoundError") {
+            showToast("Connection failed: " + error.message, "error", 5000);
+          }
         }
       }
 
@@ -2461,8 +2596,8 @@
       function copyLogs() {
         navigator.clipboard.writeText(
           document.getElementById("telemetry-log").innerText,
-        );
-        alert("Logs copied!");
+        ).then(() => showToast("Logs copied to clipboard", "success"))
+         .catch(() => showToast("Clipboard copy failed", "error"));
       }
 
       // ─── Telemetry Parser (Mirrors APK EcoViewModel.notifyBleDataByte) ─────
@@ -2676,7 +2811,7 @@
       // ─── Packet Sender ───────────────────────────────────────────────────────
       async function sendPacket(packet, label) {
         if (!writeCharacteristic) {
-          alert("Please connect your scooter first!");
+          showToast("Connect your scooter first!", "warn");
           return;
         }
         try {
@@ -2688,7 +2823,7 @@
           logPacket("TX ➡️", packet, label);
         } catch (err) {
           logPacket("ERR ❌", packet, err.message);
-          alert("TX error: " + err.message);
+          showToast("TX error: " + err.message, "error", 5000);
         }
       }
 
@@ -3049,7 +3184,7 @@
             "CUSTOM_0x" + cmdHex.toUpperCase() + "_0x" + paramHex.toUpperCase(),
           );
         } catch (e) {
-          alert(e.message);
+          showToast(e.message, "error");
         }
       }
 
@@ -3061,8 +3196,9 @@
           const dataStr = document.getElementById("custom-data").value.trim();
           savedCommands.push({ cmdHex, paramHex, dataStr });
           renderSavedCommands();
+          showToast("Shortcut saved!", "success");
         } catch (e) {
-          alert(e.message);
+          showToast(e.message, "error");
         }
       }
 
