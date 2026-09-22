@@ -251,8 +251,9 @@
       /* Hero Speedometer Arc */
       .speedo-gauge-wrap {
         position: relative;
-        width: min(220px, 72vw);
-        height: min(180px, 58vw);
+        /* Enlarged (252×210 vs 220×180) so the digits fit fully inside the arc */
+        width: min(252px, 83vw);
+        height: min(210px, 69vw);
         margin: 4px auto 0;
         display: flex;
         justify-content: center;
@@ -283,7 +284,11 @@
       }
       .speedo-center {
         position: absolute;
-        top: 38px;
+        /* 88px keeps the digit corners clear of the stroke at the top of the
+           enlarged arc (circle center ≈ y144, inner radius ≈ 82) */
+        top: 88px;
+        left: 50%;
+        transform: translateX(-50%);
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -814,6 +819,78 @@
         border-top: 1px solid rgba(255, 255, 255, 0.06);
         margin: 10px 0;
       }
+      /* Destructive-action confirmation modal */
+      .confirm-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 10000;
+        background: rgba(3, 5, 10, 0.78);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 22px;
+      }
+      .confirm-overlay[hidden] {
+        display: none;
+      }
+      .confirm-box {
+        width: 100%;
+        max-width: 360px;
+        background: #12161f;
+        border: 1px solid rgba(255, 51, 75, 0.45);
+        border-radius: 16px;
+        padding: 20px 18px 16px;
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.85);
+        animation: toastIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        text-align: center;
+      }
+      .confirm-icon {
+        font-size: 26px;
+        line-height: 1;
+        margin-bottom: 8px;
+        filter: drop-shadow(0 0 12px rgba(255, 51, 75, 0.5));
+      }
+      .confirm-box h4 {
+        font-family: "Outfit", sans-serif;
+        font-size: 16px;
+        font-weight: 800;
+        margin: 0 0 6px;
+        color: #fff;
+      }
+      .confirm-box p {
+        font-size: 12.5px;
+        line-height: 1.55;
+        color: var(--text-muted);
+        margin: 0 0 16px;
+        word-break: break-word;
+      }
+      .confirm-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      /* Diagnostic status rows */
+      .diag-row {
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 9px 11px;
+        margin-bottom: 6px;
+        color: var(--text-muted);
+      }
+      .diag-row.diag-ok {
+        border-color: rgba(0, 255, 117, 0.35);
+        color: var(--primary);
+        background: rgba(0, 255, 117, 0.06);
+        font-weight: 700;
+      }
+      .diag-row.diag-fault {
+        border-color: rgba(255, 153, 0, 0.45);
+        color: #ffb020;
+        background: rgba(255, 153, 0, 0.07);
+      }
       /* Toast Notification System */
       #toast-container {
         position: fixed;
@@ -958,6 +1035,85 @@
       <!-- TAB 1: RIDE (HUD, Modes, Speed Governor, Dynamics)                   -->
       <!-- ══════════════════════════════════════════════════════════════════════ -->
       <div class="app-pane active" id="pane-drive">
+        <!-- Riding Profile Selector (one-tap multi-command sequences) -->
+        <div
+          class="card"
+          style="
+            padding: 10px 12px;
+            border: 1px solid rgba(168, 85, 247, 0.35);
+            background: linear-gradient(
+              180deg,
+              rgba(168, 85, 247, 0.06),
+              var(--bg-card)
+            );
+          "
+        >
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 8px;
+              margin-bottom: 8px;
+            "
+          >
+            <span
+              style="
+                font-family: 'Outfit', sans-serif;
+                font-size: 13px;
+                font-weight: 700;
+                color: #c084fc;
+              "
+              >🛰️ Riding Profiles</span
+            >
+            <span
+              class="status-pill"
+              id="profile-status"
+              style="
+                background: #1c1430;
+                border: 1px solid rgba(168, 85, 247, 0.4);
+                color: #c084fc;
+              "
+              >Manual</span
+            >
+          </div>
+          <div class="btn-grid" style="margin-bottom: 0">
+            <button class="btn-blue" onclick="applyRidingProfile('commute')">
+              🚗 Commute · Legal 25
+            </button>
+            <button class="btn-purple" onclick="applyRidingProfile('track')">
+              🏁 Private Track · Uncapped
+            </button>
+          </div>
+          <div
+            id="profile-status-text"
+            style="
+              font-size: 11px;
+              text-align: center;
+              color: var(--text-muted);
+              font-weight: 600;
+              margin-top: 6px;
+            "
+          ></div>
+          <details>
+            <summary>What each profile sends</summary>
+            <div
+              style="
+                font-size: 10.5px;
+                color: var(--text-muted);
+                line-height: 1.55;
+                margin-bottom: 4px;
+              "
+            >
+              <b>Commute:</b> governor 25 km/h → Gear 2 (Drive) → kick-start →
+              TCS ON.<br />
+              <b>Track:</b> asks for confirmation, uncaps to byte 120 → Mode C →
+              kick-start → TCS OFF.<br />
+              One-tap sequences, 150 ms between writes.
+            </div>
+          </details>
+        </div>
+
         <!-- Live Instrument Cluster Hero Card -->
         <div class="card">
           <div class="card-header">
@@ -1044,14 +1200,96 @@
               Controller<span id="hud-temp">-- °C</span>
             </div>
             <div class="hud-sub-tile">
+              Power<span id="hud-power">-- W</span>
+            </div>
+            <div class="hud-sub-tile">
               Governor<span id="hud-current-limit">-- km/h</span>
             </div>
             <div class="hud-sub-tile">
               Cruise<span id="hud-cruise">OFF</span>
             </div>
-            <div class="hud-sub-tile" style="grid-column: span 2">
+            <div class="hud-sub-tile">
               Odometer<span id="hud-odometer">-- km</span>
             </div>
+          </div>
+        </div>
+
+        <!-- Battery Health & Range Card -->
+        <div class="card">
+          <div class="card-header">
+            <h3>🔋 Battery Health &amp; Range</h3>
+            <span style="font-size: 11px; color: var(--text-muted)"
+              >Frame 0x21</span
+            >
+          </div>
+
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              margin-bottom: 10px;
+              flex-wrap: wrap;
+            "
+          >
+            <span style="font-size: 11px; color: var(--text-muted)"
+              >Pack capacity:</span
+            >
+            <input
+              type="number"
+              id="bat-capacity-ah"
+              min="1"
+              max="100"
+              step="0.1"
+              value="13"
+              oninput="onCapacityChange(this.value)"
+              style="
+                width: 74px;
+                padding: 6px 8px;
+                background: #08090d;
+                border: 1px solid var(--border-color);
+                border-radius: 6px;
+                color: var(--primary);
+                text-align: center;
+                font-weight: 800;
+              "
+            />
+            <span style="font-size: 11px; color: var(--text-muted)"
+              >Ah — set your pack for the range estimate</span
+            >
+          </div>
+
+          <div class="hud-sub-grid">
+            <div class="hud-sub-tile">
+              Pack Voltage<span id="br-pack-v">-- V</span>
+            </div>
+            <div class="hud-sub-tile">
+              Current Draw<span id="br-current">-- A</span>
+            </div>
+            <div class="hud-sub-tile">
+              State of Charge<span id="br-soc">--%</span>
+            </div>
+            <div class="hud-sub-tile">
+              Remaining<span id="br-remaining-wh">-- Wh</span>
+            </div>
+            <div class="hud-sub-tile">
+              Avg Consumption<span id="br-avg-whkm">-- Wh/km</span>
+            </div>
+            <div class="hud-sub-tile">
+              Est. Range<span id="br-range">-- km</span>
+            </div>
+          </div>
+          <div
+            id="br-range-hint"
+            style="
+              font-size: 10.5px;
+              color: var(--text-muted);
+              margin-top: 8px;
+              line-height: 1.5;
+            "
+          >
+            Est. Range = Remaining Wh ÷ Avg Wh/km. The estimate appears after
+            ~0.2 km of riding with the pack capacity set.
           </div>
         </div>
 
@@ -1272,6 +1510,59 @@
           </div>
         </div>
 
+        <!-- Trip Computer & Session Stats (localStorage) -->
+        <div class="card">
+          <div class="card-header">
+            <h3>🧮 Trip Computer</h3>
+            <button
+              onclick="resetTripStats()"
+              style="
+                width: auto;
+                padding: 5px 10px;
+                font-size: 11px;
+                background: #351c22;
+                color: #ff8888;
+                display: inline-flex;
+                min-height: 30px;
+              "
+            >
+              ↺ Reset Trip
+            </button>
+          </div>
+          <div class="hud-sub-grid">
+            <div class="hud-sub-tile">
+              Peak Speed<span id="trip-peak-speed">0.0 km/h</span>
+            </div>
+            <div class="hud-sub-tile">
+              Avg Speed<span id="trip-avg-speed">-- km/h</span>
+            </div>
+            <div class="hud-sub-tile">
+              Ride Time<span id="trip-duration">00:00</span>
+            </div>
+            <div class="hud-sub-tile">
+              Distance<span id="trip-distance">0 m</span>
+            </div>
+            <div class="hud-sub-tile">
+              Energy<span id="trip-energy">0.0 Wh</span>
+            </div>
+            <div class="hud-sub-tile">
+              Peak Power<span id="trip-peak-watts">0 W</span>
+            </div>
+          </div>
+          <div
+            style="
+              font-size: 10.5px;
+              color: var(--text-muted);
+              margin-top: 8px;
+              line-height: 1.5;
+            "
+          >
+            Distance, ride time and energy integrate live Frame 0x20/0x21
+            telemetry (~5 Hz). Stats persist across refreshes via localStorage;
+            the scooter's own odometer is never touched.
+          </div>
+        </div>
+
         <!-- Adaptive Automatic Transmission Shifter Card -->
         <div
           class="card"
@@ -1487,6 +1778,18 @@
               >
                 ⚡ Unlock Full 55+ km/h
               </button>
+            </div>
+
+            <div
+              id="gov-readback"
+              style="
+                font-size: 10.5px;
+                color: var(--text-muted);
+                line-height: 1.5;
+                margin-bottom: 10px;
+              "
+            >
+              0x62 readback: waiting — queried automatically at connect.
             </div>
 
             <div class="section-label">Quick Presets</div>
@@ -2136,6 +2439,31 @@
           </div>
         </div>
 
+        <!-- Hardware Diagnostic Status Card -->
+        <div class="card">
+          <div class="card-header">
+            <h3>🩺 Hardware Diagnostics</h3>
+            <span class="status-pill" id="diag-badge">Awaiting Signal</span>
+          </div>
+          <div id="diag-list">
+            <div class="diag-row">
+              No controller data yet — connect and wait for Frame 0x20.
+            </div>
+          </div>
+          <div
+            style="
+              font-size: 10.5px;
+              color: var(--text-muted);
+              margin-top: 6px;
+              line-height: 1.5;
+            "
+          >
+            Fault byte = Frame 0x20 <code>bytes[7]</code> (APK
+            <code>FaultInfoEco</code>), <code>0x00</code> = no fault. Over-temp
+            warning from Frame 0x21 <code>bytes[15]</code> at ≥ 80 °C.
+          </div>
+        </div>
+
         <!-- Custom Command Builder Card -->
         <div class="card">
           <div class="card-header">
@@ -2314,6 +2642,19 @@
       </nav>
     </div>
 
+    <!-- Destructive-action confirmation modal -->
+    <div id="confirm-overlay" class="confirm-overlay" hidden>
+      <div class="confirm-box" role="alertdialog" aria-modal="true">
+        <div class="confirm-icon">⚠️</div>
+        <h4 id="confirm-title">Are you sure?</h4>
+        <p id="confirm-msg"></p>
+        <div class="confirm-actions">
+          <button id="confirm-cancel" class="btn-secondary">Cancel</button>
+          <button id="confirm-ok" class="btn-danger">Confirm</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Toast notification container -->
     <div id="toast-container"></div>
 
@@ -2336,6 +2677,59 @@
         el.addEventListener("click", () => {
           clearTimeout(timer);
           remove();
+        });
+      }
+
+      // ─── Destructive-Action Confirmation Modal ──────────────────────────────
+      // Promise-based confirm, styled like the rest of the app. Use it for
+      // actions that change controller state irreversibly or unsafely:
+      // mileage resets, lock-password clear, speed uncap, raw/injected bytes.
+      let confirmResolver = null;
+
+      function confirmDestructive(
+        message,
+        confirmLabel = "Confirm",
+        title = "Are you sure?",
+      ) {
+        return new Promise((resolve) => {
+          if (confirmResolver) {
+            resolve(false); // a confirmation is already pending
+            return;
+          }
+          confirmResolver = resolve;
+          document.getElementById("confirm-title").innerText = title;
+          document.getElementById("confirm-msg").innerText = message;
+          document.getElementById("confirm-ok").innerText = confirmLabel;
+          document.getElementById("confirm-overlay").hidden = false;
+          document.body.style.overflow = "hidden";
+          document.getElementById("confirm-cancel").focus(); // safe default
+        });
+      }
+
+      function closeConfirm(result) {
+        const overlay = document.getElementById("confirm-overlay");
+        if (!overlay || overlay.hidden) return;
+        overlay.hidden = true;
+        document.body.style.overflow = "";
+        const resolve = confirmResolver;
+        confirmResolver = null;
+        if (resolve) resolve(result);
+      }
+
+      function initConfirmModal() {
+        document
+          .getElementById("confirm-ok")
+          .addEventListener("click", () => closeConfirm(true));
+        document
+          .getElementById("confirm-cancel")
+          .addEventListener("click", () => closeConfirm(false));
+        document
+          .getElementById("confirm-overlay")
+          .addEventListener("click", (e) => {
+            if (e.target.id === "confirm-overlay") closeConfirm(false); // backdrop tap cancels
+          });
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") closeConfirm(false);
         });
       }
 
@@ -2531,6 +2925,357 @@
         const entry = GEAR_REGISTRY[gearByte];
         if (!entry) return "Raw Gear (" + gearByte + ")";
         return entry.speed ? entry.label + " (" + entry.speed + ")" : entry.label;
+      }
+
+      // ─── Trip, Power, Battery & Diagnostics State ───────────────────────────
+      const TRIP_STORAGE_KEY = "ecoroad-trip-stats";
+      const CAPACITY_STORAGE_KEY = "ecoroad-capacity-ah";
+      const DEFAULT_CAPACITY_AH = 13; // user's pack
+      const OVERTEMP_C = 80; // controller warning threshold
+      const PROFILE_STEP_DELAY_MS = 150; // gap between profile writes
+
+      let lastSoc = null; // battery % (Frame 0x20 bytes[8])
+      let lastFaultByte = null; // fault code (Frame 0x20 bytes[7], 0 = OK)
+      let lastControllerTemp = null; // °C (Frame 0x21 bytes[15])
+      let lastVolts = null; // pack voltage (Frame 0x21 bytes[5:6])
+      let lastAmpsRaw = null; // discharge current raw (Frame 0x21 bytes[7:8])
+      let lastSpeedSampleAt = 0;
+      let lastPowerSampleAt = 0;
+      let tripSaveCounter = 0;
+
+      function emptyTrip() {
+        return {
+          peakSpeed: 0,
+          distanceKm: 0,
+          energyWh: 0,
+          durationS: 0,
+          peakWatts: 0,
+          vMin: null,
+          vMax: null,
+        };
+      }
+      let trip = emptyTrip();
+
+      function setTxt(id, text) {
+        const el = document.getElementById(id);
+        if (el) el.innerText = text;
+      }
+
+      function loadTripStats() {
+        try {
+          const raw = localStorage.getItem(TRIP_STORAGE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === "object")
+              trip = Object.assign(emptyTrip(), parsed);
+          }
+        } catch (e) {
+          /* storage unavailable — start fresh */
+        }
+      }
+
+      function saveTripStats() {
+        try {
+          localStorage.setItem(TRIP_STORAGE_KEY, JSON.stringify(trip));
+        } catch (e) {
+          /* storage unavailable — ignore */
+        }
+      }
+
+      function maybeSaveTrip() {
+        // ~every 5s when telemetry runs at ~5 Hz
+        if (++tripSaveCounter % 25 === 0) saveTripStats();
+      }
+
+      function fmtDuration(totalS) {
+        const s = Math.max(0, Math.round(totalS));
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const sec = s % 60;
+        const pad = (n) => String(n).padStart(2, "0");
+        return h > 0 ? h + ":" + pad(m) + ":" + pad(sec) : pad(m) + ":" + pad(sec);
+      }
+
+      // Frame 0x20: integrate distance + ride time, track peak speed
+      function updateTripSpeed(speedKmh) {
+        if (!isFinite(speedKmh)) return;
+        const now = Date.now();
+        if (lastSpeedSampleAt) {
+          const dt = (now - lastSpeedSampleAt) / 1000;
+          if (dt > 0 && dt < 5) {
+            // ignore tab-sleep gaps so one long pause can't skew the trip
+            trip.durationS += dt;
+            trip.distanceKm += speedKmh * (dt / 3600);
+          }
+        }
+        lastSpeedSampleAt = now;
+        if (speedKmh > trip.peakSpeed) trip.peakSpeed = speedKmh;
+        renderTrip();
+        maybeSaveTrip();
+      }
+
+      // Frame 0x21: live wattmeter (P = V x I) + energy integration
+      function updatePowerGauge(volts, ampRaw) {
+        const amps = ampRaw * 0.01;
+        // Guard against garbage / regen-encoded values before drawing them
+        const plausible =
+          volts > 10 && volts < 100 && amps >= 0 && amps <= 40;
+        if (!plausible) {
+          setTxt("hud-power", "-- W");
+          return;
+        }
+        const watts = volts * amps;
+        setTxt("hud-power", Math.round(watts) + " W");
+        if (watts > trip.peakWatts) {
+          trip.peakWatts = Math.round(watts);
+          setTxt("trip-peak-watts", trip.peakWatts + " W");
+        }
+        const now = Date.now();
+        if (lastPowerSampleAt) {
+          const dt = (now - lastPowerSampleAt) / 1000;
+          if (dt > 0 && dt < 5) trip.energyWh += (watts * dt) / 3600;
+        }
+        lastPowerSampleAt = now;
+        if (trip.vMin === null || volts < trip.vMin)
+          trip.vMin = Number(volts.toFixed(1));
+        if (trip.vMax === null || volts > trip.vMax)
+          trip.vMax = Number(volts.toFixed(1));
+        maybeSaveTrip();
+      }
+
+      function renderTrip() {
+        const avg =
+          trip.durationS > 30 ? trip.distanceKm / (trip.durationS / 3600) : null;
+        setTxt("trip-peak-speed", trip.peakSpeed.toFixed(1) + " km/h");
+        setTxt("trip-avg-speed", avg === null ? "-- km/h" : avg.toFixed(1) + " km/h");
+        setTxt("trip-duration", fmtDuration(trip.durationS));
+        setTxt(
+          "trip-distance",
+          trip.distanceKm >= 1
+            ? trip.distanceKm.toFixed(2) + " km"
+            : Math.round(trip.distanceKm * 1000) + " m",
+        );
+        setTxt("trip-energy", trip.energyWh.toFixed(1) + " Wh");
+        setTxt("trip-peak-watts", trip.peakWatts + " W");
+      }
+
+      async function resetTripStats() {
+        const ok = await confirmDestructive(
+          "Clears local trip stats (peak/avg speed, ride time, distance, energy, peak power). The scooter's own odometer is not touched.",
+          "Reset trip",
+          "Reset trip computer?",
+        );
+        if (!ok) return;
+        trip = emptyTrip();
+        lastSpeedSampleAt = 0;
+        lastPowerSampleAt = 0;
+        saveTripStats();
+        renderTrip();
+        renderBatteryRange();
+        showToast("Trip stats cleared", "success");
+      }
+
+      // ─── Battery Health & Range ─────────────────────────────────────────────
+      function getCapacityAh() {
+        const inp = document.getElementById("bat-capacity-ah");
+        const v = inp ? parseFloat(inp.value) : NaN;
+        return isFinite(v) && v > 0 && v <= 100 ? v : DEFAULT_CAPACITY_AH;
+      }
+
+      function onCapacityChange(val) {
+        const v = parseFloat(val);
+        if (isFinite(v) && v > 0 && v <= 100) {
+          try {
+            localStorage.setItem(CAPACITY_STORAGE_KEY, String(v));
+          } catch (e) {
+            /* storage unavailable — ignore */
+          }
+        }
+        renderBatteryRange();
+      }
+
+      function renderBatteryRange() {
+        const volts = lastVolts;
+        const amps = lastAmpsRaw === null ? null : lastAmpsRaw * 0.01;
+        const drawOk = amps !== null && amps >= 0 && amps <= 40;
+        const vRange =
+          trip.vMin !== null && trip.vMax !== null
+            ? " (" + trip.vMin + "–" + trip.vMax + ")"
+            : "";
+        setTxt("br-pack-v", volts === null ? "-- V" : volts.toFixed(1) + " V" + vRange);
+        setTxt("br-current", drawOk ? amps.toFixed(2) + " A" : "-- A");
+        setTxt("br-soc", lastSoc === null ? "--%" : lastSoc + "%");
+
+        const cap = getCapacityAh();
+        const remainingWh =
+          volts !== null && lastSoc !== null
+            ? cap * volts * (lastSoc / 100)
+            : null;
+        setTxt(
+          "br-remaining-wh",
+          remainingWh === null ? "-- Wh" : Math.round(remainingWh) + " Wh",
+        );
+
+        const avgWhKm =
+          trip.distanceKm > 0.2 && trip.energyWh > 0
+            ? trip.energyWh / trip.distanceKm
+            : null;
+        setTxt(
+          "br-avg-whkm",
+          avgWhKm === null ? "-- Wh/km" : avgWhKm.toFixed(1) + " Wh/km",
+        );
+
+        const rangeKm =
+          remainingWh !== null && avgWhKm !== null && avgWhKm > 0
+            ? remainingWh / avgWhKm
+            : null;
+        setTxt("br-range", rangeKm === null ? "-- km" : rangeKm.toFixed(1) + " km");
+
+        const hint = document.getElementById("br-range-hint");
+        if (hint) {
+          hint.innerText =
+            rangeKm === null
+              ? "Est. Range = Remaining Wh ÷ Avg Wh/km. The estimate appears after ~0.2 km of riding with the pack capacity set."
+              : `Based on a ${cap} Ah pack and your current ${avgWhKm.toFixed(1)} Wh/km consumption (voltage curve this trip: ${
+                  trip.vMin
+                }–${trip.vMax} V).`;
+        }
+      }
+
+      // ─── Hardware Diagnostics (Frame 0x20 bytes[7] + Frame 0x21 temp) ──────
+      function renderDiagnostics() {
+        const badge = document.getElementById("diag-badge");
+        const list = document.getElementById("diag-list");
+        if (!badge || !list) return;
+
+        if (lastFaultByte === null && lastControllerTemp === null) {
+          badge.innerText = "Awaiting Signal";
+          badge.className = "status-pill";
+          list.innerHTML =
+            '<div class="diag-row">No controller data yet — connect and wait for Frame 0x20.</div>';
+          return;
+        }
+
+        const issues = [];
+        if (lastFaultByte !== null && lastFaultByte !== 0) {
+          const hex = lastFaultByte
+            .toString(16)
+            .toUpperCase()
+            .padStart(2, "0");
+          issues.push(
+            `⚠ Controller fault code <b>0x${hex}</b> (${lastFaultByte}) reported on Frame 0x20 <code>bytes[7]</code>. Check the controller display / APK log for the decoded meaning.`,
+          );
+        }
+        if (lastControllerTemp !== null && lastControllerTemp >= OVERTEMP_C) {
+          issues.push(
+            `🌡 Controller over-temperature: <b>${lastControllerTemp} °C</b> (threshold ${OVERTEMP_C} °C). Ease off the throttle until it cools.`,
+          );
+        }
+
+        if (!issues.length) {
+          badge.innerText = "✓ Systems Normal";
+          badge.className = "status-pill online";
+          list.innerHTML =
+            '<div class="diag-row diag-ok">✓ Systems Normal — no fault code, controller temperature nominal.</div>';
+        } else {
+          badge.innerText = issues.length === 1 ? "⚠ 1 Warning" : `⚠ ${issues.length} Warnings`;
+          badge.className = "status-pill offline";
+          list.innerHTML = issues
+            .map((t) => '<div class="diag-row diag-fault">' + t + "</div>")
+            .join("");
+        }
+      }
+
+      // ─── Riding Profiles (multi-command sequences) ──────────────────────────
+      async function applyRidingProfile(name) {
+        const badge = document.getElementById("profile-status");
+        const status = document.getElementById("profile-status-text");
+        if (!writeCharacteristic) {
+          showToast("Connect your scooter first!", "warn");
+          return;
+        }
+
+        const steps = [];
+        let label;
+        if (name === "commute") {
+          label = "Commute · Legal 25";
+          steps.push(
+            // governor 25 km/h on Drive (byte 1), below the confirm threshold
+            () =>
+              sendPacket(
+                buildDynamicFrame(
+                  CMD.SPEED_LIMIT,
+                  0x02,
+                  new Uint8Array([1, convertKmhToWire(25)]),
+                ),
+                "PROFILE_COMMUTE_LIMIT_G1_25",
+              ),
+            () => sendGear(1), // Gear 2 · Drive
+            () => sendStartSpeed(1), // zero-start OFF → kick-start
+            () => sendTCS(1), // TCS ON
+          );
+        } else {
+          label = "Private Track · Uncapped";
+          steps.push(
+            // reuse the safety-gated uncap; aborts the profile if declined
+            async () => {
+              const ok = await unlockMaxSpeed();
+              if (ok === false) throw new Error("cancelled");
+            },
+            () => sendGear(11), // Mode C (byte 11)
+            () => sendStartSpeed(1), // kick-start ON
+            () => sendTCS(0), // TCS OFF
+          );
+        }
+
+        if (badge) {
+          badge.innerText = "APPLYING…";
+          badge.className = "status-pill";
+          badge.style.background = "#132238";
+          badge.style.borderColor = "#00c0ff";
+          badge.style.color = "#00c0ff";
+        }
+        if (status) {
+          status.innerText = "Sending profile sequence…";
+          status.style.color = "var(--text-muted)";
+        }
+
+        try {
+          for (const step of steps) {
+            await step();
+            await new Promise((r) => setTimeout(r, PROFILE_STEP_DELAY_MS));
+          }
+          if (badge) {
+            badge.innerText = label;
+            badge.style.background = "rgba(0, 255, 117, 0.15)";
+            badge.style.borderColor = "var(--primary)";
+            badge.style.color = "var(--primary)";
+          }
+          if (status) {
+            status.innerText = "Profile applied: " + label;
+            status.style.color = "var(--primary)";
+          }
+          showToast("Profile applied: " + label, "success");
+        } catch (err) {
+          const cancelled = err && err.message === "cancelled";
+          if (badge) {
+            badge.innerText = cancelled ? "Manual" : "INCOMPLETE";
+            badge.style.background = cancelled ? "#1c1430" : "#2b0c10";
+            badge.style.borderColor = cancelled
+              ? "rgba(168, 85, 247, 0.4)"
+              : "var(--danger)";
+            badge.style.color = cancelled ? "#c084fc" : "var(--danger)";
+          }
+          if (status) {
+            status.innerText = cancelled
+              ? "Profile cancelled at the confirmation step — no commands sent."
+              : "Profile stopped early: " + (err && err.message);
+            status.style.color = cancelled
+              ? "var(--text-muted)"
+              : "var(--danger)";
+          }
+          if (!cancelled) showToast("Profile incomplete: " + err.message, "error");
+        }
       }
 
       // ─── RGB State ───────────────────────────────────────────────────────────
@@ -2811,8 +3556,14 @@
             const lightsOn = (bytes[5] & 0x01) !== 0 || (bytes[5] & 0x10) !== 0;
             updateLightsIndicator(lightsOn);
 
+            // 1b. Fault code byte (APK FaultInfoEco: 0 = OK) → diagnostics card
+            lastFaultByte = bytes[7] & 0xff;
+            renderDiagnostics();
+
             // 2. Battery Percentage (bytes[8] — range 0-100%)
             const battery = Math.min(100, Math.max(0, bytes[8]));
+            lastSoc = battery;
+            renderBatteryRange();
             const batEl = document.getElementById("hud-battery");
             if (batEl) batEl.innerText = battery + "%";
             const bar = document.getElementById("hud-battery-bar");
@@ -2834,6 +3585,7 @@
             const speedKmh = (speedRaw * 0.1).toFixed(1);
             const speedEl = document.getElementById("hud-speed");
             if (speedEl) speedEl.innerText = speedKmh;
+            updateTripSpeed(parseFloat(speedKmh)); // trip distance/time/peak
             // Update SVG speedometer arc fill (0 to 65 km/h range)
             const gaugeFill = document.getElementById("gauge-arc-fill");
             if (gaugeFill) {
@@ -2907,6 +3659,13 @@
             if (tempEl && temp >= 0 && temp < 120) {
               tempEl.innerText = temp + " °C";
             }
+            lastControllerTemp = temp >= 0 && temp < 120 ? temp : null;
+
+            // 2b. Wattmeter: P = V x I (voltage 0.1V, current 0.01A, LE)
+            lastVolts = voltRaw > 50 && voltRaw < 1000 ? voltRaw * 0.1 : null;
+            lastAmpsRaw = (bytes[8] << 8) | bytes[7];
+            updatePowerGauge(lastVolts === null ? 0 : lastVolts, lastAmpsRaw);
+            renderDiagnostics();
 
             // 3. Total Odometer (bytes[13] low, bytes[14] high in km)
             const odoKm = (bytes[14] << 8) | bytes[13];
@@ -2914,6 +3673,7 @@
             if (odoEl && odoKm >= 0) {
               odoEl.innerText = odoKm + " km";
             }
+            renderBatteryRange();
 
             if (document.getElementById("filter-heartbeat").checked) return;
 
@@ -2934,6 +3694,10 @@
                 feedbackEl.style.color = "var(--primary)";
               }
             }
+          } else if (cmd === 0x62 && bytes.length >= 7) {
+            // Speed-limit query response — APK case 98:
+            // SpeedLimitBimt(bytes[5], bytes[6]) → two DATA bytes.
+            updateGovReadback(bytes[5], bytes[6]);
           }
         }
 
@@ -3083,6 +3847,15 @@
       }
 
       async function sendLockAction(action) {
+        // Clearing the anti-theft password is irreversible from this app.
+        if (action === 3) {
+          const ok = await confirmDestructive(
+            `Clears the anti-theft lock password on the controller (PIN field currently reads ${getPinBytes().pin}). You may need the factory default afterwards.`,
+            "🗑️ Clear password",
+            "Reset the lock password?",
+          );
+          if (!ok) return;
+        }
         const { pin, pinBytes } = getPinBytes();
         const payload = new Uint8Array(5);
         payload[0] = action; // 0=unlock, 1=lock, 3=clear/reset
@@ -3155,6 +3928,12 @@
         const inp = document.getElementById("custom-gear-input");
         const val = inp ? parseInt(inp.value, 10) : 11;
         if (!isNaN(val) && val >= 0 && val <= 255) {
+          const ok = await confirmDestructive(
+            `Injects gear byte ${val} — not one of the standard profiles. The dashboard would show '${((val + 1) & 0xff).toString(16).toUpperCase()}' and the speed profile is unknown.`,
+            "Inject byte",
+            "Send raw gear byte?",
+          );
+          if (!ok) return;
           await sendGear(val);
         }
       }
@@ -3191,7 +3970,39 @@
         await applySpeedLimit(val);
       }
 
+      // 0x62 response readback: APK case 98 → SpeedLimitBimt(bytes[5], bytes[6]).
+      // The byte ORDER is proven empirically: the wire-limit byte is always
+      // ≥ 44 (15 km/h + 29 offset, up to 120 uncap) while gear bytes are ≤ 14,
+      // so whichever side is small identifies the gear.
+      function updateGovReadback(a, b) {
+        const el = document.getElementById("gov-readback");
+        if (!el) return;
+        const isGear = (v) => v >= 0 && v <= 14;
+        const toKmh = (v) => (v >= 44 ? v - 29 : v); // −29 wire offset
+        let text;
+        if (isGear(a) && b >= 15) {
+          text = `0x62 readback: gear ${a} · limit byte ${b} → ${toKmh(b)} km/h ✓ gear-first (matches our TX format)`;
+          el.style.color = "var(--primary)";
+        } else if (isGear(b) && a >= 15) {
+          text = `0x62 readback: limit byte ${a} · gear ${b} → ${toKmh(a)} km/h — limit-first order!`;
+          el.style.color = "var(--accent-orange, #ffb020)";
+        } else {
+          text = `0x62 readback: DATA [${a}, ${b}] — byte order unconfirmed`;
+          el.style.color = "var(--text-muted)";
+        }
+        el.innerText = text;
+      }
+
       async function applySpeedLimit(targetKmh) {
+        // Lowering the cap is harmless; raising it above 45 km/h is not.
+        if (Number(targetKmh) >= 50) {
+          const ok = await confirmDestructive(
+            `Raises the speed limit to ${targetKmh} km/h (wire byte ${convertKmhToWire(targetKmh)}) and also syncs the alternate Sport / Mode C profile.`,
+            "🚀 Raise limit",
+            "Raise the speed limit?",
+          );
+          if (!ok) return;
+        }
         const wireVal = convertKmhToWire(targetKmh);
         // Send to selected target gear
         await sendPacket(
@@ -3218,6 +4029,12 @@
       }
 
       async function unlockMaxSpeed() {
+        const ok = await confirmDestructive(
+          "Writes byte 120 (uncapped) to Mode C and Sport. The scooter may exceed 55 km/h. Set a sane limit again before normal riding.",
+          "⚡ Uncap speed",
+          "Remove the speed governor?",
+        );
+        if (!ok) return false;
         // 1. Switch drive gear to Mode C (11)
         await sendGear(11);
         await new Promise((r) => setTimeout(r, 200));
@@ -3235,10 +4052,17 @@
           buildDynamicFrame(CMD.SPEED_LIMIT, 0x02, new Uint8Array([3, 120])),
           "UNLOCK_MAX_GEAR3_120",
         );
+        return true;
       }
 
       async function sendSpeedLimit(rawByte) {
         rawByte = Number(rawByte);
+        const ok = await confirmDestructive(
+          `Sends the raw byte ${rawByte} to gear ${speedLimitGear} with no validation or offset correction.`,
+          "Send raw byte",
+          "Send raw governor byte?",
+        );
+        if (!ok) return;
         await sendPacket(
           buildDynamicFrame(
             CMD.SPEED_LIMIT,
@@ -3296,6 +4120,12 @@
       }
 
       async function sendMileageReset() {
+        const ok = await confirmDestructive(
+          "Clears the trip odometer on the controller. This data cannot be recovered.",
+          "Reset trip",
+          "Reset trip odometer?",
+        );
+        if (!ok) return;
         await sendPacket(
           buildDynamicFrame(CMD.MILEAGE_RESET, 0x02, new Uint8Array([0x00])),
           "RESET_TRIP",
@@ -3303,6 +4133,12 @@
       }
 
       async function sendSingleMileageReset() {
+        const ok = await confirmDestructive(
+          "Clears the single-mileage counter on the controller. This data cannot be recovered.",
+          "Reset counter",
+          "Reset single mileage?",
+        );
+        if (!ok) return;
         await sendPacket(
           buildDynamicFrame(CMD.SINGLE_MILEAGE, 0x02, new Uint8Array([0x00])),
           "RESET_SINGLE_MILEAGE",
@@ -3338,6 +4174,12 @@
       }
 
       async function sendCustomCommand() {
+        const ok = await confirmDestructive(
+          "Builds and transmits an arbitrary framed packet to the controller. Unknown CMD/PARAM combinations can put the scooter in an unexpected state.",
+          "📤 Send anyway",
+          "Send raw command?",
+        );
+        if (!ok) return;
         try {
           const { cmdByte, paramByte, dataBytes, cmdHex, paramHex } =
             parseCustomInputs();
@@ -3447,6 +4289,23 @@
 
       // ─── Init ────────────────────────────────────────────────────────────────
       updateRgbPreview();
+      initConfirmModal();
+      loadTripStats();
+      try {
+        const cap = localStorage.getItem(CAPACITY_STORAGE_KEY);
+        const capEl = document.getElementById("bat-capacity-ah");
+        if (cap && capEl && isFinite(parseFloat(cap))) capEl.value = cap;
+      } catch (e) {
+        /* storage unavailable — keep default */
+      }
+      renderTrip();
+      renderDiagnostics();
+      renderBatteryRange();
+      // Persist trip stats whenever the page is backgrounded or closed
+      window.addEventListener("pagehide", saveTripStats);
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) saveTripStats();
+      });
     </script>
   </body>
 </html>
