@@ -2,12 +2,22 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#090c14" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="apple-mobile-web-app-title" content="EcoRoad ES6" />
     <title>EcoRoad ES6 Pro Cockpit</title>
     <meta
       name="description"
       content="Advanced BLE control dashboard for EcoRoad ES6 electric scooter."
     />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -36,7 +46,10 @@
         touch-action: manipulation;
       }
       body {
-        font-family: "Inter", -apple-system, sans-serif;
+        font-family:
+          "Inter",
+          -apple-system,
+          sans-serif;
         background: #040508;
         color: var(--text-main);
         margin: 0;
@@ -57,6 +70,8 @@
         background: #090c14;
         position: relative;
         padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+        padding-left: env(safe-area-inset-left, 0px);
+        padding-right: env(safe-area-inset-right, 0px);
         box-shadow: 0 0 60px rgba(0, 0, 0, 0.9);
       }
       /* Sticky Topbar */
@@ -121,8 +136,12 @@
       }
       /* Hide battery % label on very small screens */
       @media (max-width: 370px) {
-        .top-badge-text { display: none; }
-        .app-brand-info .sub { display: none; }
+        .top-badge-text {
+          display: none;
+        }
+        .app-brand-info .sub {
+          display: none;
+        }
       }
       .top-badge {
         font-size: 11px;
@@ -421,7 +440,9 @@
         gap: 6px;
       }
       @media (max-width: 380px) {
-        .btn-grid-4 { grid-template-columns: repeat(2, 1fr); }
+        .btn-grid-4 {
+          grid-template-columns: repeat(2, 1fr);
+        }
       }
       button {
         font-family: "Inter", sans-serif;
@@ -433,7 +454,10 @@
         padding: 12px 12px;
         border-radius: 8px;
         cursor: pointer;
-        transition: filter 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
+        transition:
+          filter 0.12s ease,
+          transform 0.12s ease,
+          box-shadow 0.12s ease;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -443,7 +467,9 @@
         user-select: none;
         min-height: 44px;
       }
-      button:hover { filter: brightness(1.1); }
+      button:hover {
+        filter: brightness(1.1);
+      }
       button:active {
         transform: scale(0.96);
         filter: brightness(0.92);
@@ -525,7 +551,9 @@
         color: #3a4055;
         transition: color 0.18s;
       }
-      .btn-gear:active { transform: scale(0.94); }
+      .btn-gear:active {
+        transform: scale(0.94);
+      }
       .btn-gear.gear-active {
         background: rgba(0, 255, 117, 0.08) !important;
         border-color: var(--primary) !important;
@@ -577,7 +605,9 @@
         color: #7c3aed;
         transition: color 0.18s;
       }
-      .btn-overdrive:active { transform: scale(0.94); }
+      .btn-overdrive:active {
+        transform: scale(0.94);
+      }
       .btn-overdrive.gear-active {
         border-color: #c084fc !important;
         background: rgba(155, 81, 224, 0.15) !important;
@@ -713,6 +743,8 @@
       input[type="text"],
       input[type="number"] {
         min-height: 40px;
+        /* 16px floor: stops Safari's auto-zoom-on-focus */
+        font-size: 16px;
       }
       .rgb-swatches {
         display: grid;
@@ -807,23 +839,41 @@
         display: flex;
         align-items: center;
         gap: 10px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
         animation: toastIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         pointer-events: auto;
         width: 100%;
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
       }
-      .toast.toast-success { border-color: rgba(0,255,117,0.4); }
-      .toast.toast-error   { border-color: rgba(255,51,75,0.4); color: #fca5a5; }
-      .toast.toast-info    { border-color: rgba(0,192,255,0.4); }
-      .toast.toast-out { animation: toastOut 0.22s ease-in forwards; }
+      .toast.toast-success {
+        border-color: rgba(0, 255, 117, 0.4);
+      }
+      .toast.toast-error {
+        border-color: rgba(255, 51, 75, 0.4);
+        color: #fca5a5;
+      }
+      .toast.toast-info {
+        border-color: rgba(0, 192, 255, 0.4);
+      }
+      .toast.toast-out {
+        animation: toastOut 0.22s ease-in forwards;
+      }
       @keyframes toastIn {
-        from { opacity: 0; transform: translateY(12px) scale(0.96); }
-        to   { opacity: 1; transform: translateY(0) scale(1); }
+        from {
+          opacity: 0;
+          transform: translateY(12px) scale(0.96);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
       }
       @keyframes toastOut {
-        to { opacity: 0; transform: translateY(8px) scale(0.95); }
+        to {
+          opacity: 0;
+          transform: translateY(8px) scale(0.95);
+        }
       }
       /* Custom Inputs 2-col */
       .custom-inputs {
@@ -837,7 +887,7 @@
       }
       .custom-inputs input {
         font-family: "Courier New", monospace;
-        font-size: 13px;
+        font-size: 16px;
         background: #08090d;
         border: 1px solid var(--border-color);
         border-radius: 6px;
@@ -1141,7 +1191,7 @@
                 <button
                   class="btn-secondary"
                   id="gear-od-4"
-                  style="font-size: 11px; padding: 10px 4px;"
+                  style="font-size: 11px; padding: 10px 4px"
                   onclick="sendGear(4)"
                 >
                   '5' (4)
@@ -1149,7 +1199,7 @@
                 <button
                   class="btn-secondary"
                   id="gear-od-7"
-                  style="font-size: 11px; padding: 10px 4px;"
+                  style="font-size: 11px; padding: 10px 4px"
                   onclick="sendGear(7)"
                 >
                   '8' (7)
@@ -1157,7 +1207,7 @@
                 <button
                   class="btn-secondary"
                   id="gear-od-8"
-                  style="font-size: 11px; padding: 10px 4px;"
+                  style="font-size: 11px; padding: 10px 4px"
                   onclick="sendGear(8)"
                 >
                   '9' (8)
@@ -1165,7 +1215,7 @@
                 <button
                   class="btn-secondary"
                   id="gear-od-12"
-                  style="font-size: 11px; padding: 10px 4px;"
+                  style="font-size: 11px; padding: 10px 4px"
                   onclick="sendGear(12)"
                 >
                   'd' (12)
@@ -1173,7 +1223,7 @@
                 <button
                   class="btn-secondary"
                   id="gear-od-13"
-                  style="font-size: 11px; padding: 10px 4px;"
+                  style="font-size: 11px; padding: 10px 4px"
                   onclick="sendGear(13)"
                 >
                   'E' (13)
@@ -1181,7 +1231,7 @@
                 <button
                   class="btn-secondary"
                   id="gear-od-14"
-                  style="font-size: 11px; padding: 10px 4px;"
+                  style="font-size: 11px; padding: 10px 4px"
                   onclick="sendGear(14)"
                 >
                   'F' (14)
@@ -1207,7 +1257,7 @@
                     color: #c084fc;
                     text-align: center;
                     font-weight: 800;
-                    font-size: 12px;
+                    font-size: 16px;
                   "
                 />
                 <button
@@ -1285,7 +1335,7 @@
                     font-size: 10px;
                     font-weight: 700;
                   "
-                  >2→3: 26 km/h</span
+                  >2→3: 25 km/h</span
                 >
                 <span
                   style="
@@ -1297,7 +1347,7 @@
                     font-size: 10px;
                     font-weight: 700;
                   "
-                  >3→4: 38 km/h</span
+                  >3→4: 35 km/h</span
                 >
               </div>
             </div>
@@ -1525,7 +1575,7 @@
                     color: var(--accent-orange);
                     text-align: center;
                     font-weight: 800;
-                    font-size: 13px;
+                    font-size: 16px;
                   "
                 />
                 <button
@@ -1946,6 +1996,9 @@
                 type="text"
                 id="lock-pin-input"
                 maxlength="4"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                autocomplete="off"
                 value="0000"
                 placeholder="0000"
                 style="
@@ -2275,10 +2328,15 @@
         container.appendChild(el);
         const remove = () => {
           el.classList.add("toast-out");
-          el.addEventListener("animationend", () => el.remove(), { once: true });
+          el.addEventListener("animationend", () => el.remove(), {
+            once: true,
+          });
         };
         const timer = setTimeout(remove, duration);
-        el.addEventListener("click", () => { clearTimeout(timer); remove(); });
+        el.addEventListener("click", () => {
+          clearTimeout(timer);
+          remove();
+        });
       }
 
       // ─── Native App Tab Switching ──────────────────────────────────────────
@@ -2513,6 +2571,16 @@
       async function connectScooter() {
         const pill = document.getElementById("conn-pill");
         const btn = document.getElementById("btn-connect");
+        // Friendly message instead of a cryptic TypeError on browsers
+        // without Web Bluetooth (iOS Safari, Firefox, etc.)
+        if (!navigator.bluetooth) {
+          showToast(
+            "Web Bluetooth isn't supported in this browser. Open this site in Chrome or Edge (iOS Safari is not supported).",
+            "error",
+            6000,
+          );
+          return;
+        }
         pill.innerText = "● Scanning...";
         pill.className = "status-pill";
         try {
@@ -2594,10 +2662,10 @@
         document.getElementById("telemetry-log").innerText = "Log cleared.\n";
       }
       function copyLogs() {
-        navigator.clipboard.writeText(
-          document.getElementById("telemetry-log").innerText,
-        ).then(() => showToast("Logs copied to clipboard", "success"))
-         .catch(() => showToast("Clipboard copy failed", "error"));
+        navigator.clipboard
+          .writeText(document.getElementById("telemetry-log").innerText)
+          .then(() => showToast("Logs copied to clipboard", "success"))
+          .catch(() => showToast("Clipboard copy failed", "error"));
       }
 
       // ─── Telemetry Parser (Mirrors APK EcoViewModel.notifyBleDataByte) ─────
@@ -3250,6 +3318,33 @@
         savedCommands.splice(i, 1);
         renderSavedCommands();
       }
+
+      // ─── PIN persistence (localStorage, digits-only input) ─────────────────
+      // Saves the 4-digit lock PIN so it's pre-filled on the next visit.
+      // Note: localStorage is per-browser/per-origin — clearing site data
+      // or switching phones resets it to the 0000 default.
+      const PIN_STORAGE_KEY = "ecoroad-lock-pin";
+      (function initPinField() {
+        const pinInput = document.getElementById("lock-pin-input");
+        if (!pinInput) return;
+        try {
+          const saved = localStorage.getItem(PIN_STORAGE_KEY);
+          if (saved && /^\d{4}$/.test(saved)) pinInput.value = saved;
+        } catch (e) {
+          /* storage unavailable (e.g. private mode) — keep default */
+        }
+        pinInput.addEventListener("input", () => {
+          const clean = pinInput.value.replace(/\D+/g, "").slice(0, 4);
+          if (clean !== pinInput.value) pinInput.value = clean;
+          if (clean.length === 4) {
+            try {
+              localStorage.setItem(PIN_STORAGE_KEY, clean);
+            } catch (e) {
+              /* storage unavailable — ignore */
+            }
+          }
+        });
+      })();
 
       // ─── Init ────────────────────────────────────────────────────────────────
       updateRgbPreview();

@@ -152,8 +152,8 @@ The interface is built as a native companion mobile app (`.app-shell` with max 4
   - Virtual automatic transmission simulation.
   - Monitors live speed from Frame `0x20` and automatically upshifts as you reach current gear top speed:
     - **1 $\rightarrow$ 2**: at 15 km/h
-    - **2 $\rightarrow$ 3**: at 26 km/h
-    - **3 $\rightarrow$ 4 (or Mode C)**: at 38 km/h
+    - **2 $\rightarrow$ 3**: at 25 km/h
+    - **3 $\rightarrow$ 4 (or Mode C)**: at 35 km/h
   - Downshifts with hysteresis (11, 22, 32 km/h) to prevent gear hunting.
   - 1.4-second debounce cooldown prevents controller packet flooding.
 - **Speed Governor**:
