@@ -3772,13 +3772,29 @@
       }
 
       // ─── Packet Sender ───────────────────────────────────────────────────────
-      async function sendPacket(packet, label) {
+      // opts.withResponse → ATT Write Request (APK writes with GATT response,
+      // Android WRITE_TYPE_DEFAULT). Handshake/other commands keep
+      // write-without-response exactly as before.
+      async function sendPacket(packet, label, opts) {
         if (!writeCharacteristic) {
           showToast("Connect your scooter first!", "warn");
           return;
         }
         try {
-          if (writeCharacteristic.properties.writeWithoutResponse) {
+          const wantResponse = opts && opts.withResponse && writeCharacteristic.properties.write;
+          if (wantResponse) {
+            try {
+              if (writeCharacteristic.writeValueWithResponse) {
+                await writeCharacteristic.writeValueWithResponse(packet);
+              } else {
+                await writeCharacteristic.writeValue(packet);
+              }
+            } catch (attErr) {
+              // Controller didn't ACK the ATT write request — resend fire-and-forget
+              logPacket("TX ↩️", packet, attErr.message + " → without-response retry");
+              await writeCharacteristic.writeValueWithoutResponse(packet);
+            }
+          } else if (writeCharacteristic.properties.writeWithoutResponse) {
             await writeCharacteristic.writeValueWithoutResponse(packet);
           } else {
             await writeCharacteristic.writeValue(packet);
@@ -3798,7 +3814,7 @@
       function queueLightPacket(packet, label) {
         lightTxChain = lightTxChain.then(async () => {
           try {
-            await sendPacket(packet, label);
+            await sendPacket(packet, label, { withResponse: true });
           } finally {
             await new Promise((res) => setTimeout(res, 150));
           }
