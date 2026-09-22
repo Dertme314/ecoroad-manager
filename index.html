@@ -1834,7 +1834,7 @@
                   outline: none;
                 "
               >
-                ⚙️ Advanced Speed Tuner (Raw Byte &amp; Gear Override)
+                ⚙️ Advanced Speed Tuner (Raw Byte &amp; Byte Format)
               </summary>
               <div
                 style="
@@ -1844,8 +1844,9 @@
                   margin-bottom: 8px;
                 "
               >
-                Firmware applies -29 offset (Sending 84 sets 55 km/h, 94 sets 65
-                km/h, 120 uncaps).
+                Byte format: APK parity sends km/h directly (byte 55 = 55 km/h);
+                legacy +29 mode treats byte − 29 as km/h (84 = 55). 120 uncaps
+                in both modes. Set here, verify on the cluster Governor tile.
               </div>
               <div
                 style="
@@ -1900,11 +1901,11 @@
                     color: var(--text-muted);
                     white-space: nowrap;
                   "
-                  >Target Gear:</span
+                  >Byte format:</span
                 >
                 <select
-                  id="sl-target-gear"
-                  onchange="speedLimitGear = Number(this.value)"
+                  id="sl-wire-mode"
+                  onchange="setWireMode(this.value)"
                   style="
                     flex: 1;
                     background: #161b26;
@@ -1915,11 +1916,10 @@
                     font-size: 11px;
                   "
                 >
-                  <option value="3" selected>Sport (Mode 3 / Dash 4)</option>
-                  <option value="11">Mode C (Byte 11 / Dash C)</option>
-                  <option value="2">Turbo (Mode 2 / Dash 3)</option>
-                  <option value="1">Drive (Mode 1 / Dash 2)</option>
-                  <option value="0">Eco (Mode 0 / Dash 1)</option>
+                  <option value="raw" selected>
+                    Raw km/h · APK parity (default)
+                  </option>
+                  <option value="p29">Legacy +29 offset (byte − 29)</option>
                 </select>
               </div>
             </details>
@@ -2527,8 +2527,10 @@
               <code>0x32</code> APP_LOCK_ECO &nbsp;
               <code>0x33</code> APP_LIGHT_ECO &nbsp;
               <code>0x34</code> APP_GAUGE_BRIGHTNESS_ECO<br />
-              <code>0x35</code> APP_ELECTRIC_GEAR_ECO &nbsp;
-              <code>0x36</code> APP_SPEED_LIMIT_GEAR_ECO &nbsp;
+              <code>0x35</code> APP_ELECTRIC_GEAR_ECO
+              <span style="font-size: 9px">[mode, 00]</span> &nbsp;
+              <code>0x36</code> APP_SPEED_LIMIT_GEAR_ECO
+              <span style="font-size: 9px">[val] LEN 01</span> &nbsp;
               <code>0x37</code> APP_ELECTRONIC_BRAKES_ECO &nbsp;
               <code>0x38</code> APP_CRUISE_GEAR_ECO<br />
               <code>0x39</code> APP_START_SPEED_ECO &nbsp;
@@ -2547,6 +2549,7 @@
               <code>0x61</code> APP_QUERY_SN_ECO &nbsp;
               <code>0x62</code> APP_QUERY_SPEED_LIMIT_ECO &nbsp;
               <code>0x63</code> APP_QUERY_LIGHT_ECO
+              <span style="font-size: 9px">(all: PARAM 01 LEN 00)</span>
             </div>
           </details>
         </div>
@@ -3201,15 +3204,15 @@
         if (name === "commute") {
           label = "Commute · Legal 25";
           steps.push(
-            // governor 25 km/h on Drive (byte 1), below the confirm threshold
+            // governor 25 km/h (APK single-byte frame), below the confirm threshold
             () =>
               sendPacket(
                 buildDynamicFrame(
                   CMD.SPEED_LIMIT,
                   0x02,
-                  new Uint8Array([1, convertKmhToWire(25)]),
+                  new Uint8Array([convertKmhToWire(25)]),
                 ),
-                "PROFILE_COMMUTE_LIMIT_G1_25",
+                "PROFILE_COMMUTE_LIMIT_25",
               ),
             () => sendGear(1), // Gear 2 · Drive
             () => sendStartSpeed(1), // zero-start OFF → kick-start
@@ -3439,21 +3442,28 @@
         executeStartupHandshake();
       }
 
-      // Fires the 0x60 → 0x61 → 0x62 → 0x63 query pipeline after every GATT
-      // connect (120ms between writes). Responses come back through
-      // handleTelemetryUpdate and land in the BLE Packet Logger.
+      // Fires the APK's connect sequence after every GATT connect
+      // (source: DevCtrolFg.sendConnectConfig → z0.a.c(1) then the
+      // 0x60 → 0x61 → 0x62 → 0x63 query pipeline, 120ms between writes).
+      // Queries use the APK's exact empty shape: e(CMD, 1, FALSE) →
+      // `1A A1 CMD 01 00 CRC 1F F1` (PARAM 1, LEN 0, no payload).
       async function executeStartupHandshake() {
-        const queries = [
+        const steps = [
+          { cmd: CMD.CONNECT, name: "CONNECT_CAR", param: 0x02, data: new Uint8Array([0x01]) },
           { cmd: CMD.QUERY_CAR, name: "QUERY_CAR" },
           { cmd: CMD.QUERY_SN, name: "QUERY_SN" },
           { cmd: CMD.QUERY_SPEED, name: "QUERY_SPEED_LIMIT" },
           { cmd: CMD.QUERY_LIGHT, name: "QUERY_LIGHT" },
         ];
-        for (const q of queries) {
+        for (const q of steps) {
           if (!writeCharacteristic) return; // disconnected mid-handshake
           try {
             await sendPacket(
-              buildDynamicFrame(q.cmd, 0x02, new Uint8Array([0x00])),
+              buildDynamicFrame(
+                q.cmd,
+                q.param !== undefined ? q.param : 0x01,
+                q.data !== undefined ? q.data : new Uint8Array(0),
+              ),
               q.name,
             );
           } catch (err) {
@@ -3605,7 +3615,7 @@
 
             // 5. Drive Gear (bytes[15] bits 0-3) — labels come from GEAR_REGISTRY
             const gearBits = bytes[15] & 0x0f;
-            lastGearByte = gearBits; // remember for active-gear limit sync
+            lastGearByte = gearBits; // active gear byte — informational (limits are global per APK source)
             const gearName = getGearLabel(gearBits);
             const gearBadge = document.getElementById("gear-live-badge");
             if (gearBadge) gearBadge.innerText = gearName;
@@ -3899,10 +3909,11 @@
       }
 
       // ─── Gear (0-indexed: 0=Eco→disp1, 1=Drive→disp2, 2=Turbo→disp3, 3=Sport→disp4, 4+=overdrive) ──
+      // APK exact shape: z0.a.i(gearsMode, 0) → `35 02 02 <mode> 00` (two bytes).
       async function sendGear(gear) {
         gear = Number(gear);
         await sendPacket(
-          buildDynamicFrame(CMD.GEAR, 0x02, new Uint8Array([gear])),
+          buildDynamicFrame(CMD.GEAR, 0x02, new Uint8Array([gear, 0x00])),
           "SET_GEAR_" + gear,
         );
         // Highlight standard gears (0-3)
@@ -3941,7 +3952,34 @@
       }
 
       // ─── Speed Governor ──────────────────────────────────────────────────────
-      let speedLimitGear = 3; // Default Sport
+      // Byte-format policy (persisted in localStorage `ecoroad-wire-offset`):
+      //   "raw" — byte = km/h exactly as the APK sends it (z0.a.D(progress),
+      //           DevSetEcoAty slider bounded by the 0x62 min/max and labelled
+      //           with zero arithmetic in n.h()). DEFAULT — production parity.
+      //   "p29" — legacy hypothesis that firmware enforces byte − 29 = km/h.
+      //           Not supported by the APK source (no ±29 anywhere); kept as a
+      //           one-tap A/B for on-hardware verification.
+      const WIRE_MODE_KEY = "ecoroad-wire-offset";
+      function getWireMode() {
+        try {
+          return localStorage.getItem(WIRE_MODE_KEY) === "p29" ? "p29" : "raw";
+        } catch (e) {
+          return "raw";
+        }
+      }
+      function setWireMode(mode) {
+        try {
+          localStorage.setItem(WIRE_MODE_KEY, mode === "p29" ? "p29" : "raw");
+        } catch (e) {
+          /* private mode */
+        }
+        showToast(
+          mode === "p29"
+            ? "Wire format: legacy +29 offset (byte = km/h + 29)"
+            : "Wire format: APK parity (byte = km/h directly)",
+          "info",
+        );
+      }
 
       function onSpeedLimitSlider(val) {
         val = Number(val);
@@ -3950,14 +3988,17 @@
       }
 
       function convertKmhToWire(targetKmh) {
-        // Firmware applies a fixed -29 offset to every 0x36 speed value
-        // (confirmed: 55→26, 65→36, 84→55, 94→65 km/h), so the wire byte is
-        // always Speed + 29 across the whole 15-64 km/h range:
-        //   15 → 44 (0x2C) · 25 → 54 (0x36) · 35 → 64 (0x40) · 55 → 84 (0x54)
         const speed = Math.min(65, Math.max(0, parseInt(targetKmh, 10) || 0));
-        if (speed >= 65) return 120; // slider MAX = firmware uncap (0x78)
-        return Math.min(255, speed + 29);
+        if (speed >= 65) return 120; // slider MAX = firmware uncap byte (0x78)
+        if (getWireMode() === "p29") return Math.min(255, speed + 29);
+        return speed; // APK parity: D(sliderProgress) sends the km/h value raw
       }
+
+      // Reflect the stored byte-format choice in the Advanced tuner select.
+      (function syncWireModeSelect() {
+        const sel = document.getElementById("sl-wire-mode");
+        if (sel) sel.value = getWireMode();
+      })();
 
       async function setSpeedLimitPreset(kmh) {
         const slider = document.getElementById("sl-speed-limit");
@@ -3972,144 +4013,82 @@
         await applySpeedLimit(val);
       }
 
-      // 0x62 response readback: APK case 98 → SpeedLimitBimt(bytes[5], bytes[6]).
-      // Hardware capture: DATA [15, 50] at connect — neither a gear (≤14) nor a
-      // wire-limit byte pair, i.e. direct km/h (min 15 · max/current 50).
-      // If one side is ≤ 14 it IS a gear byte and the other side is the wire
-      // limit (≥ 44 = 15 km/h + 29 offset, up to 120 uncap).
+      // 0x62 response readback — APK case 98:
+      //   `new SpeedLimitBimt(bytes[5], bytes[6])` with fields
+      //   (minSpeed, maxSpeed); DevSetEcoAty then does
+      //   slider.setMin(min) / setMax(max) and labels them with n.h()
+      //   ("15km/h"…"50km/h") with zero arithmetic. Both DATA bytes are
+      //   plain km/h limits — never a gear byte (gears are 0x35).
       function updateGovReadback(a, b) {
         const el = document.getElementById("gov-readback");
         if (!el) return;
-        const isGear = (v) => v >= 0 && v <= 14;
-        const toKmh = (v) => (v >= 44 ? v - 29 : v); // −29 wire offset
-        let text;
-        if (isGear(a) && b >= 15) {
-          text = `0x62 readback: gear ${a} · limit byte ${b} → ${toKmh(b)} km/h ✓ gear-first (matches our TX format)`;
-          el.style.color = "var(--primary)";
-        } else if (isGear(b) && a >= 15) {
-          text = `0x62 readback: limit byte ${a} · gear ${b} → ${toKmh(a)} km/h — limit-first order!`;
-          el.style.color = "var(--accent-orange, #ffb020)";
-        } else if (a >= 15 && a <= 100 && b >= 15 && b <= 100) {
-          const lo = Math.min(a, b);
-          const hi = Math.max(a, b);
-          text = `0x62 readback: DATA [${a}, ${b}] → direct km/h pair: min ${lo} · max/current ${hi} (hardware-observed form)`;
-          el.style.color = "var(--text-muted)";
-        } else {
-          text = `0x62 readback: DATA [${a}, ${b}] — byte order unconfirmed`;
-          el.style.color = "var(--text-muted)";
-        }
-        el.innerText = text;
+        const lo = Math.min(a, b);
+        const hi = Math.max(a, b);
+        const swapped = a > b ? " (swapped from raw order)" : "";
+        el.innerText =
+          `0x62 readback (SpeedLimitBimt min/max): ${lo} – ${hi} km/h${swapped} ` +
+          `— the official app uses exactly this as its slider range; current limit echoes in 0x20[12].`;
+        el.style.color = "var(--primary)";
       }
 
       async function applySpeedLimit(targetKmh) {
         // Lowering the cap is harmless; raising it above 45 km/h is not.
-        if (Number(targetKmh) >= 50) {
-          const activeNote =
-            lastGearByte !== null
-              ? ` The active gear (byte ${lastGearByte}) is also synced so the cap applies while riding.`
-              : "";
+        const target = Number(targetKmh);
+        if (target >= 50) {
           const ok = await confirmDestructive(
-            `Raises the speed limit to ${targetKmh} km/h (wire byte ${convertKmhToWire(targetKmh)}) and syncs the alternate Sport / Mode C profile.${activeNote}`,
+            `Raises the speed governor to ${targetKmh} km/h (byte ${
+              convertKmhToWire(target)
+            }${getWireMode() === "p29" ? " with the legacy +29 offset" : ""}) — sent exactly like the official APK: one byte, no gear field.`,
             "🚀 Raise limit",
             "Raise the speed limit?",
           );
           if (!ok) return;
         }
-        const wireVal = convertKmhToWire(targetKmh);
-        // Send to selected target gear
+        const limitByte = convertKmhToWire(target);
+        // APK z0.a.D(): `1A A1 36 02 01 <limitByte> CRC 1F F1` — PARAM 0x02,
+        // LEN 0x01, a single data byte. The APK never puts a gear byte here
+        // (gear changes are command 0x35), so neither do we: the limit is one
+        // global value, initialized from 0x20[12] and bounded by the 0x62
+        // min/max readback.
         await sendPacket(
-          buildDynamicFrame(
-            CMD.SPEED_LIMIT,
-            0x02,
-            new Uint8Array([speedLimitGear, wireVal]),
-          ),
-          `SET_SPEED_G${speedLimitGear}_${wireVal} (${targetKmh}kmh)`,
+          buildDynamicFrame(CMD.SPEED_LIMIT, 0x02, new Uint8Array([limitByte])),
+          `SET_SPEED_${limitByte} (${target}kmh)`,
         );
-        // Hardware logs (Sept 2026): limits are stored PER GEAR BYTE — a write
-        // only caps the wheel while that byte is the ACTIVE gear (the ACK is a
-        // generic Param 05 "received", not proof it applied). Always sync the
-        // gear telemetry reports as active, or riding a different gear stays
-        // uncapped.
-        if (lastGearByte !== null && lastGearByte !== speedLimitGear) {
-          await new Promise((r) => setTimeout(r, 120));
-          await sendPacket(
-            buildDynamicFrame(
-              CMD.SPEED_LIMIT,
-              0x02,
-              new Uint8Array([lastGearByte, wireVal]),
-            ),
-            `SET_SPEED_ACTIVE_G${lastGearByte}_${wireVal} (${targetKmh}kmh)`,
-          );
-        }
-        // If unlocking high speed, also write to Mode C (11) and Sport (3) so both are maxed
-        if (targetKmh >= 50) {
-          await new Promise((r) => setTimeout(r, 120));
-          const altGear = speedLimitGear === 11 ? 3 : 11;
-          await sendPacket(
-            buildDynamicFrame(
-              CMD.SPEED_LIMIT,
-              0x02,
-              new Uint8Array([altGear, wireVal]),
-            ),
-            `SET_SPEED_G${altGear}_${wireVal} (Sync Sport/Mode C)`,
-          );
-        }
       }
 
       async function unlockMaxSpeed() {
         const ok = await confirmDestructive(
-          "Writes byte 120 (uncapped) to Mode C and Sport. The scooter may exceed 55 km/h. Set a sane limit again before normal riding.",
+          "Writes byte 120 (uncapped) with the APK's single-byte 0x36 frame. The scooter may exceed 55 km/h. Set a sane limit again before normal riding.",
           "⚡ Uncap speed",
           "Remove the speed governor?",
         );
         if (!ok) return false;
-        // 1. Switch drive gear to Mode C (11)
+        // 1. Switch drive gear to Mode C (11) — separate 0x35 command
         await sendGear(11);
         await new Promise((r) => setTimeout(r, 200));
         // 2. Set slider to 65+
         const slider = document.getElementById("sl-speed-limit");
         if (slider) slider.value = 65;
         onSpeedLimitSlider(65);
-        // 3. Send 120 to both gear 11 (Mode C) and gear 3 (Sport 4)
+        // 3. Single APK-shaped write: `36 02 01 78` (120 = 0x78 uncap byte)
         await sendPacket(
-          buildDynamicFrame(CMD.SPEED_LIMIT, 0x02, new Uint8Array([11, 120])),
-          "UNLOCK_MAX_GEAR11_120",
+          buildDynamicFrame(CMD.SPEED_LIMIT, 0x02, new Uint8Array([120])),
+          "UNLOCK_MAX_120",
         );
-        await new Promise((r) => setTimeout(r, 120));
-        await sendPacket(
-          buildDynamicFrame(CMD.SPEED_LIMIT, 0x02, new Uint8Array([3, 120])),
-          "UNLOCK_MAX_GEAR3_120",
-        );
-        // If telemetry still reports some other active gear, sync that one too
-        if (lastGearByte !== null && lastGearByte !== 11 && lastGearByte !== 3) {
-          await new Promise((r) => setTimeout(r, 120));
-          await sendPacket(
-            buildDynamicFrame(
-              CMD.SPEED_LIMIT,
-              0x02,
-              new Uint8Array([lastGearByte, 120]),
-            ),
-            `UNLOCK_MAX_ACTIVE_G${lastGearByte}_120`,
-          );
-        }
         return true;
       }
 
       async function sendSpeedLimit(rawByte) {
         rawByte = Number(rawByte);
         const ok = await confirmDestructive(
-          `Sends the raw byte ${rawByte} to gear ${speedLimitGear} with no validation or offset correction.`,
+          `Sends the raw byte ${rawByte} as the single-byte 0x36 limit, with no validation or offset correction (APK shape).`,
           "Send raw byte",
           "Send raw governor byte?",
         );
         if (!ok) return;
         await sendPacket(
-          buildDynamicFrame(
-            CMD.SPEED_LIMIT,
-            0x02,
-            new Uint8Array([speedLimitGear, rawByte]),
-          ),
-          `SET_SPEED_RAW_G${speedLimitGear}_${rawByte}`,
+          buildDynamicFrame(CMD.SPEED_LIMIT, 0x02, new Uint8Array([rawByte])),
+          `SET_SPEED_RAW_${rawByte}`,
         );
       }
 

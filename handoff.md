@@ -31,7 +31,7 @@ The Android companion APK (`com.ecoroad.es6`) was reverse-engineered via JADX to
 - First connect calls `navigator.bluetooth.requestDevice()` (user gesture) and caches the device in `bluetoothDevice`; every later connect reuses it, so reconnects need no gesture.
 - First connect and auto-reconnect share one post-connect path, `finishConnection()`: resolve service/characteristics → `startNotifications()` → update UI → fire the startup handshake.
 - On unexpected link loss (`gattserverdisconnected` without a user disconnect), the app shows a toast and retries `gatt.connect()` every **3 seconds** until it succeeds or the user disconnects.
-- **Startup query pipeline**: immediately after every GATT connect, `executeStartupHandshake()` fires `0x60 → 0x61 → 0x62 → 0x63` sequentially with `PARAM 0x02`, `DATA [0x00]`, and a **120 ms** gap between writes (query CAR status, SN, speed limit, light state). Responses arrive on the notify characteristic, are decoded by `handleTelemetryUpdate`, and appear in the BLE Packet Logger. Hardware capture: `0x61` replies with a framed SN packet (`.…61-04-0A…` containing `…ES6`), `0x62` replies `1A-A1-62-04-02-0F-32-…` (DATA `[15, 50]`, see §1 below), and at boot the UART module leaks raw ASCII `AT+NAME=ES6-US\r\n` on the notify characteristic before entering passthrough — the parser only accepts `1A A1` frames, so the ASCII burst is logged but never decoded. All four queries are accepted; the controller does **not** NACK the handshake.
+- **Startup handshake (APK-canonical shape)**: immediately after every GATT connect, `executeStartupHandshake()` mirrors production: `connectCar` first (`1A A1 30 02 01 01` = APK `sendConnectConfig` → `z0.a.c(1)`), then `0x60 → 0x61 → 0x62 → 0x63` as **empty queries** — `1A A1 CMD 01 00 CRC 1F F1` (PARAM `0x01`, LEN `0x00`, no payload; APK `e(CMD, 1, FALSE)`) — with a **120 ms** gap between writes. Responses arrive on the notify characteristic, are decoded by `handleTelemetryUpdate`, and appear in the BLE Packet Logger. Hardware capture: `0x61` replies with a framed SN packet (`.…61-04-0A…` containing `…ES6`), `0x62` replies `1A-A1-62-04-02-0F-32-…` (DATA `[15, 50]`, see §1 below), and at boot the UART module leaks raw ASCII `AT+NAME=ES6-US\r\n` on the notify characteristic before entering passthrough — the parser only accepts `1A A1` frames, so the ASCII burst is logged but never decoded. All four queries are accepted; the controller does **not** NACK the handshake.
 
 ---
 
@@ -41,7 +41,7 @@ The Android companion APK (`com.ecoroad.es6`) was reverse-engineered via JADX to
 
 - **Safe default**: focus starts on `Cancel`; pressing `Escape` or tapping the backdrop cancels; only one confirmation can be pending at a time (a second call resolves `false`); page scroll is locked while open.
 - **Gated actions** (must confirm before any packet is sent):
-  1. `unlockMaxSpeed()` — writes byte `120` (uncapped) to gears 11 and 3
+  1. `unlockMaxSpeed()` — switches to Mode C (11) and writes the uncapped byte `120` via the single-byte 0x36 frame
   2. `applySpeedLimit()` — only when the target is **≥ 50 km/h** (lowering the cap stays one-tap)
   3. `sendSpeedLimit()` — raw governor byte from the advanced tuner
   4. `sendMileageReset()` — clears the trip odometer (irreversible data loss)
@@ -89,33 +89,58 @@ function runHardwareCRC16(data) {
 
 ---
 
+## Decompiled APK Source (added Sept 2026)
+
+- `sources/` — full JADX export of **ECOROAD 1.0.11** incl. the app tree `com/eco/ecoroad/` (first export was cut short and only had library packages — re-added complete).
+- `resources/` — unpacked APK: `resources/base.apk/classes*.dex` (app code is in `classes3.dex`) + `res/`.
+- `ECOROAD_1.0.11_apkcube.apks.jadx` — JADX project file (open tab history shows `EcoViewModel`).
+
+Key classes for protocol work (search these before theorizing from captures):
+
+| Question | Where |
+| --- | --- |
+| Every TX frame ever sent | `sources/z0/a.java` — one builder `d(CMD, PARAM, DATA)` + per-command wrappers (`D()` = speed limit, `i()` = gear, `c()` = connect, `v/u/s()` = queries) |
+| CMD/PARAM constants | `sources/com/eco/ecoroad/blec/BleEcoConstant.java` (writes PARAM 2, queries PARAM 1) |
+| RX parser | `method.txt` = `EcoViewModel.notifyBleDataByte` (full-frame indexing: `[0..1]=1A A1`, `[2]=CMD`, `[3]=reply-param`, `[4]=LEN`, `[5..]=DATA`) |
+| Speed-limit UI/semantics | `sources/com/eco/ecoroad/pagerui/devicec/activi/DevSetEcoAty.java` (slider, gates, TX call) |
+| Readback data class | `sources/com/eco/ecoroad/bea/SpeedLimitBimt.java` (`minSpeed`, `maxSpeed`) |
+| Display formatting | `sources/com/eco/ecoroad/utileco/n.java` (`h()`/`i()` — km/h mode is raw formatting) |
+| Write queue → GATT | `sources/com/eco/ecoroad/blec/ser/BleEcoService.java` (`addWriteData`) |
+
+---
+
 ## Confirmed Hardware Discoveries
 
-### 1. Speed Governor Firmware Offset (-29)
+### 1. Speed Governor (0x36) — APK-source-verified (Sept 2026)
 
-The motor controller firmware applies a fixed `-29` offset to speed values sent in command `0x36`:
+The full decompile settles the governor question. Ground truth:
 
-- Sending `55` $\rightarrow$ results in **26 km/h** ($55 - 29$)
-- Sending `65` $\rightarrow$ results in **36 km/h** ($65 - 29$)
-- Sending `84` $\rightarrow$ sets the true **55 km/h** speed limit ($84 - 29 = 55$)
-- Sending `94` $\rightarrow$ sets **65 km/h** ($94 - 29 = 65$)
-- Sending `120` $\rightarrow$ completely **uncaps top speed** (maximum duty cycle)
+**TX (`z0.a.D(int)` → frame builder `z0.a.d()`)**: the official APK's speed-limit write is a **single data byte**:
 
-`convertKmhToWire()` in `index.html` therefore applies **`Byte = Speed + 29` unconditionally** for every target in the 15–64 km/h range (the offset is *not* conditional on reaching 50 km/h), and returns the uncapped byte `120` only for the slider's 65 "MAX" position:
+`1A A1 36 02 01 <limitByte> CRC_HI LO 1F F1` — CMD `0x36` (`APP_SPEED_LIMIT_GEAR_ECO = 54`), **PARAM `0x02`, LEN `0x01`**, one byte = the slider's raw progress. `d()` builds `[CMD, PARAM, LEN, DATA]`, CRC-16 init `0xFFFF` poly `0xA001` byte-swapped (identical to our `buildDynamicFrame()`), header `1A A1`, tail `1F F1`. **There is no gear byte anywhere in 0x36** — "GEAR" in the constant name is decoration (the wrapper's log reads 最高挡位限速 = "max-gear speed limit"); the limit is one global value. Gear changes are a separate command: `z0.a.i(gearsMode, 0)` → `1A A1 35 02 02 <mode> 00 …` (two bytes, `[mode, 00]`).
 
-| Target (km/h) | Wire byte sent | Hex    |
-| ------------- | -------------- | ------ |
-| 15            | 44             | `0x2C` |
-| 25            | 54             | `0x36` |
-| 35            | 64             | `0x40` |
-| 55            | 84             | `0x54` |
-| 65 (MAX)      | 120            | `0x78` |
+**Slider semantics (`DevSetEcoAty`)** — how the APK picks `limitByte`:
 
-**0x62 readback (`SpeedLimitBimt`) — hardware-verified (Sept 2026)**: the APK's RX parser (`method.txt`, `case 98`) reads **two** DATA bytes — `new SpeedLimitBimt(bytes[5], bytes[6])` — from the response to our `0x62` handshake query (sibling cases `97`/`99` answer `0x61` SN and `0x63` light, matching our pipeline). Real capture at connect: `1A-A1-62-04-02-0F-32-F9-1D-1F-F1` → DATA `[15, 50]`, i.e. **direct km/h values (min 15 · max/current 50)** — *not* a gear/wire pair (gear bytes are ≤ 14, wire limits ≥ 44). The Governor card's `#gov-readback` line decodes all three observed shapes: gear-first `[gear, wire]`, limit-first `[wire, gear]`, and the hardware-observed direct pair.
+- **bounds**: `slider.setMax(maxSpeed)` / `setMin(minSpeed)` straight from the **0x62 readback** (our capture `[15, 50]` → official slider runs 15–50);
+- **initial position**: `currentSpeedLimitEco` = **`0x20[12]` raw byte** (`method.txt`: `仪表1限速() currentSpeedLimit = bytess[12]`);
+- **labels**: `n.h()` — in km/h mode formats the raw value with **zero arithmetic** (`50` → `"50km/h"`; the only math in the file is km/h→mph division);
+- **gates**: must be stationary (moving → toast + slider reset) and a one-time confirm dialog (pref `HAS_SHOW_SPEED_LIMT_SHO_HAS`);
+- **on release**: `z0.a.D(progress)` → `BleEcoService.addWriteData()` — raw progress byte, no offset, no companion writes.
 
-**Per-gear enforcement — hardware-verified**: every `0x36` write is ACKed with `1A-A1-36-05-00-CRC` (Param `0x05`, Len `0x00`) — note this is the *generic* OK-ACK (the lock command gets the identical `…32-05-00…` shape), so it proves CRC/format acceptance, **not** that the cap applied. Limits are stored **per gear byte**: writing gear `3` leaves whatever you're actually riding (e.g. byte `1`) uncapped. `applySpeedLimit()` therefore now also writes to the **active gear byte** from telemetry (`0x20 bytes[15] & 0x0f` → `lastGearByte`, label `SET_SPEED_ACTIVE_G…`), and `unlockMaxSpeed()` syncs it too (`UNLOCK_MAX_ACTIVE_G…`) when it isn't 11/3. **Verify on the scooter**: after a preset, the cluster *Governor* tile (`0x20[12]`, active limit in km/h) must change to the new value — if it doesn't, the write landed on a non-active gear.
+⇒ **byte = km/h, plain.** The APK contains no `±29` anywhere, and byte / `0x20[12]` / the 0x62 min-max are one self-consistent unit the production app treats as km/h.
 
-The TX format itself remains `[gear, wire]` with `LEN 0x02`: the command is named `APP_SPEED_LIMIT_GEAR_ECO`, hardware accepted it (ACK above), and the −29 table above stands. A `[wireSpeed, 0x01]` write (or dropping the −29 offset — raw `25` would mean −4 km/h) has no support in the decompile or the captures.
+**The −29 firmware offset is demoted to an unverified hypothesis.** Earlier sessions logged "55→26, 84→55, 94→65" as hardware-confirmed, but production APK code that must cap at whatever its slider shows sends raw km/h — only consistent with a firmware that reads byte = km/h. The old table is also plausibly circular (it is exactly our own `Speed + 29` TX from that era re-observed). Instead of picking a side blind, `index.html` ships a persisted **Byte-format toggle** (Advanced tuner, key `ecoroad-wire-offset`):
+
+- `raw` (**default**) — byte = km/h, byte-identical to the APK (`55` → 55 km/h);
+- `p29` — legacy `byte = km/h + 29` (`84` → 55 km/h).
+
+Slider MAX (≥65) sends uncap byte `120` in both modes. **Ride test to settle it**: set 30 km/h in `raw` → watch `0x20[12]` (Governor tile) and ride. Tile = 30 and wheel caps ≈ 30 → raw confirmed. No cap with tile = 30 → firmware wants +29 → flip the toggle to `p29` (byte 59) and retest: wheel should cap ≈ 30 (tile then shows 59 = raw byte echo).
+
+**Per-gear storage — REFUTED by source**: the old `SET_SPEED_ACTIVE_G…` / `UNLOCK_MAX_ACTIVE_G…` companion writes (2-byte `[gear, wire]`, `LEN 0x02`) are **removed**. The protocol has no gear field in 0x36, the APK writes exactly once, and no `±29` transform exists — so neither the `[gear, wire]` shape nor the offset has support in the source. `lastGearByte` (`0x20[15] & 0x0f`) remains telemetry-only. The `1A-A1-36-05-00-CRC` ACK stays what it always was: the generic Param-`05` write-OK (lock gets the identical `…32-05-00…` shape) — CRC/format proof only, not application proof.
+
+**0x62 readback decoded**: `case 98: new SpeedLimitBimt(bytes[5], bytes[6])` — the data class has exactly two int fields `minSpeed`, `maxSpeed`, and `DevSetEcoAty` feeds them straight into the slider bounds above. Our capture `[15, 50]` = **min 15 km/h · max 50 km/h**. `#gov-readback` reports exactly this range.
+
+**Handshake now matches production byte-for-byte**: APK `sendConnectConfig` fires `z0.a.c(1)` → `1A A1 30 02 01 01` (connectCar) first, then queries built by `e(CMD, 1, FALSE)` → `1A A1 CMD 01 00 CRC 1F F1` (**PARAM 1, LEN 0, empty**). `executeStartupHandshake()` now sends connectCar + the four empty queries in that canonical shape (the old `PARAM 0x02, DATA [0x00]` shape did get replies, but production runs this one).
 
 ### 2. 7-Segment Dashboard Hex Gear Profiles
 
@@ -216,7 +241,7 @@ The interface is built as a native companion mobile app (`.app-shell` with max 4
   - 1.4-second debounce cooldown prevents controller packet flooding.
 - **Speed Governor**:
   - Target slider (15 to 65+ km/h).
-  - "🚀 Set Speed Limit" (with `-29` offset calculation).
+  - "🚀 Set Speed Limit" (single-byte `0x36` frame; byte = km/h in the default APK-parity mode, `+29` in the legacy mode — see §1).
   - "⚡ Unlock Full 55+ km/h" button (sends uncapped byte `120`).
   - Quick Presets: 15, 25, 35, 55 km/h.
   - Raw Byte & Target Gear selector drawer.
