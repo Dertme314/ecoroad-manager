@@ -159,7 +159,8 @@ The scooter's dashboard 7-segment display shows `(gearByte + 1)` in hexadecimal:
 
 - **Headlight ON**: Sends CMD `0x33` on `PARAM 0x05` with `LEN 0x01`, data `[0x00]` (`1A-A1-33-05-01-00-1E-F1-1F-F1`). The packet bytes are authoritative: CRC `1E F1` is the CRC-16/ARC of `33 05 01 00`, so the payload really is the single byte `0x00` (an earlier note claiming `[0x01, 0x01]` contradicted its own packet and has been corrected).
 - **All Lights OFF**: Sends 6-byte zero array `[0, 0, 0, 0, 0, 0]` (`1A-A1-33-02-06-00-00-00-00-00-00-AD-D8-1F-F1`).
-- **RGB Color Sequence**: Physical scooter firmware requires lights to be turned ON first before setting custom RGB color; the app automatically executes this sequence ("Arm & Apply RGB").
+- **Light TX queue**: every `0x33` write (headlight, all-on/off, RGB color) goes through a serial queue that spaces frames **≥150 ms** apart — the controller's serial buffer drops back-to-back frames (a capture showed RGB sent 28 ms after ALL ON, then a readback echoing zeroed color registers). Mirrors the APK's `BleEcoService.addWriteData()` write queue.
+- **RGB color change**: sends **only** the color packet — no ALL-ON pre-arm. The 6-byte `ALL ON` write resets the dynamic RGB registers, so it must not precede every color change; turn the lights on once via the ON switch, then Apply. (Replaces the old "Arm & Apply" `ALL_ON → 200 ms → color` sequence.)
 - **RGB color frame (source-verified `DevSeLightAct.setLightView()` → `z0.a.n()`/`z0.a.l()`)**: data = `[0x02, brightness, mode, colorCount, …RGB]` — CMD `0x33`, PARAM `0x02`. Modes 0/1 (Static/Breathe) send a single color (`count=1`, 7 data bytes: `n(2, bright, mode, 1, R, G, B)`); mode 2 (Rainbow) sends ≥3 colors (`l()`; APK gates this behind `check3Colors()` ≥3). An earlier build sent `[mode, 0x32, bright, 1, R, G, B]` — fields in the wrong order — which is why only Static appeared to work (it lit the stock rainbow effect instead of the picked color) and Breathe/Rainbow did nothing.
 
 ---
@@ -260,7 +261,7 @@ The interface is built as a native companion mobile app (`.app-shell` with max 4
   - 8 quick preset swatches.
   - Individual R, G, B and brightness sliders.
   - Animation modes: Static, Breathe, Rainbow (APK modes 0/1/2; Rainbow sends 5 colors, APK requires ≥3).
-  - "🎨 Arm & Apply RGB" multi-packet sequence.
+  - "🎨 Apply RGB" — single color packet, queued ≥150 ms behind any other light command (no ALL-ON pre-arm).
 
 #### 🔒 Tab 3: Security
 
