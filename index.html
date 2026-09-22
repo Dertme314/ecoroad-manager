@@ -2935,6 +2935,7 @@
       const PROFILE_STEP_DELAY_MS = 150; // gap between profile writes
 
       let lastSoc = null; // battery % (Frame 0x20 bytes[8])
+      let lastGearByte = null; // active gear byte (Frame 0x20 bytes[15] & 0x0f)
       let lastFaultByte = null; // fault code (Frame 0x20 bytes[7], 0 = OK)
       let lastControllerTemp = null; // °C (Frame 0x21 bytes[15])
       let lastVolts = null; // pack voltage (Frame 0x21 bytes[5:6])
@@ -3604,6 +3605,7 @@
 
             // 5. Drive Gear (bytes[15] bits 0-3) — labels come from GEAR_REGISTRY
             const gearBits = bytes[15] & 0x0f;
+            lastGearByte = gearBits; // remember for active-gear limit sync
             const gearName = getGearLabel(gearBits);
             const gearBadge = document.getElementById("gear-live-badge");
             if (gearBadge) gearBadge.innerText = gearName;
@@ -3971,9 +3973,10 @@
       }
 
       // 0x62 response readback: APK case 98 → SpeedLimitBimt(bytes[5], bytes[6]).
-      // The byte ORDER is proven empirically: the wire-limit byte is always
-      // ≥ 44 (15 km/h + 29 offset, up to 120 uncap) while gear bytes are ≤ 14,
-      // so whichever side is small identifies the gear.
+      // Hardware capture: DATA [15, 50] at connect — neither a gear (≤14) nor a
+      // wire-limit byte pair, i.e. direct km/h (min 15 · max/current 50).
+      // If one side is ≤ 14 it IS a gear byte and the other side is the wire
+      // limit (≥ 44 = 15 km/h + 29 offset, up to 120 uncap).
       function updateGovReadback(a, b) {
         const el = document.getElementById("gov-readback");
         if (!el) return;
@@ -3986,6 +3989,11 @@
         } else if (isGear(b) && a >= 15) {
           text = `0x62 readback: limit byte ${a} · gear ${b} → ${toKmh(a)} km/h — limit-first order!`;
           el.style.color = "var(--accent-orange, #ffb020)";
+        } else if (a >= 15 && a <= 100 && b >= 15 && b <= 100) {
+          const lo = Math.min(a, b);
+          const hi = Math.max(a, b);
+          text = `0x62 readback: DATA [${a}, ${b}] → direct km/h pair: min ${lo} · max/current ${hi} (hardware-observed form)`;
+          el.style.color = "var(--text-muted)";
         } else {
           text = `0x62 readback: DATA [${a}, ${b}] — byte order unconfirmed`;
           el.style.color = "var(--text-muted)";
@@ -3996,8 +4004,12 @@
       async function applySpeedLimit(targetKmh) {
         // Lowering the cap is harmless; raising it above 45 km/h is not.
         if (Number(targetKmh) >= 50) {
+          const activeNote =
+            lastGearByte !== null
+              ? ` The active gear (byte ${lastGearByte}) is also synced so the cap applies while riding.`
+              : "";
           const ok = await confirmDestructive(
-            `Raises the speed limit to ${targetKmh} km/h (wire byte ${convertKmhToWire(targetKmh)}) and also syncs the alternate Sport / Mode C profile.`,
+            `Raises the speed limit to ${targetKmh} km/h (wire byte ${convertKmhToWire(targetKmh)}) and syncs the alternate Sport / Mode C profile.${activeNote}`,
             "🚀 Raise limit",
             "Raise the speed limit?",
           );
@@ -4013,6 +4025,22 @@
           ),
           `SET_SPEED_G${speedLimitGear}_${wireVal} (${targetKmh}kmh)`,
         );
+        // Hardware logs (Sept 2026): limits are stored PER GEAR BYTE — a write
+        // only caps the wheel while that byte is the ACTIVE gear (the ACK is a
+        // generic Param 05 "received", not proof it applied). Always sync the
+        // gear telemetry reports as active, or riding a different gear stays
+        // uncapped.
+        if (lastGearByte !== null && lastGearByte !== speedLimitGear) {
+          await new Promise((r) => setTimeout(r, 120));
+          await sendPacket(
+            buildDynamicFrame(
+              CMD.SPEED_LIMIT,
+              0x02,
+              new Uint8Array([lastGearByte, wireVal]),
+            ),
+            `SET_SPEED_ACTIVE_G${lastGearByte}_${wireVal} (${targetKmh}kmh)`,
+          );
+        }
         // If unlocking high speed, also write to Mode C (11) and Sport (3) so both are maxed
         if (targetKmh >= 50) {
           await new Promise((r) => setTimeout(r, 120));
@@ -4052,6 +4080,18 @@
           buildDynamicFrame(CMD.SPEED_LIMIT, 0x02, new Uint8Array([3, 120])),
           "UNLOCK_MAX_GEAR3_120",
         );
+        // If telemetry still reports some other active gear, sync that one too
+        if (lastGearByte !== null && lastGearByte !== 11 && lastGearByte !== 3) {
+          await new Promise((r) => setTimeout(r, 120));
+          await sendPacket(
+            buildDynamicFrame(
+              CMD.SPEED_LIMIT,
+              0x02,
+              new Uint8Array([lastGearByte, 120]),
+            ),
+            `UNLOCK_MAX_ACTIVE_G${lastGearByte}_120`,
+          );
+        }
         return true;
       }
 

@@ -3,7 +3,7 @@
 ## Project File
 
 `index.html`  
-Single self-contained HTML file (~4310 lines). Pure Vanilla HTML5, CSS3, and modern JavaScript. No build system or external bundlers. Open directly in Google Chrome or Edge.
+Single self-contained HTML file (~4350 lines). Pure Vanilla HTML5, CSS3, and modern JavaScript. No build system or external bundlers. Open directly in Google Chrome or Edge.
 
 ---
 
@@ -31,7 +31,7 @@ The Android companion APK (`com.ecoroad.es6`) was reverse-engineered via JADX to
 - First connect calls `navigator.bluetooth.requestDevice()` (user gesture) and caches the device in `bluetoothDevice`; every later connect reuses it, so reconnects need no gesture.
 - First connect and auto-reconnect share one post-connect path, `finishConnection()`: resolve service/characteristics → `startNotifications()` → update UI → fire the startup handshake.
 - On unexpected link loss (`gattserverdisconnected` without a user disconnect), the app shows a toast and retries `gatt.connect()` every **3 seconds** until it succeeds or the user disconnects.
-- **Startup query pipeline**: immediately after every GATT connect, `executeStartupHandshake()` fires `0x60 → 0x61 → 0x62 → 0x63` sequentially with `PARAM 0x02`, `DATA [0x00]`, and a **120 ms** gap between writes (query CAR status, SN, speed limit, light state). Responses arrive on the notify characteristic, are decoded by `handleTelemetryUpdate`, and appear in the BLE Packet Logger. The `0x62` reply (two DATA bytes) is additionally parsed into the Governor card's live **readback** line — see §1 below.
+- **Startup query pipeline**: immediately after every GATT connect, `executeStartupHandshake()` fires `0x60 → 0x61 → 0x62 → 0x63` sequentially with `PARAM 0x02`, `DATA [0x00]`, and a **120 ms** gap between writes (query CAR status, SN, speed limit, light state). Responses arrive on the notify characteristic, are decoded by `handleTelemetryUpdate`, and appear in the BLE Packet Logger. Hardware capture: `0x61` replies with a framed SN packet (`.…61-04-0A…` containing `…ES6`), `0x62` replies `1A-A1-62-04-02-0F-32-…` (DATA `[15, 50]`, see §1 below), and at boot the UART module leaks raw ASCII `AT+NAME=ES6-US\r\n` on the notify characteristic before entering passthrough — the parser only accepts `1A A1` frames, so the ASCII burst is logged but never decoded. All four queries are accepted; the controller does **not** NACK the handshake.
 
 ---
 
@@ -111,12 +111,11 @@ The motor controller firmware applies a fixed `-29` offset to speed values sent 
 | 55            | 84             | `0x54` |
 | 65 (MAX)      | 120            | `0x78` |
 
-**0x62 readback (`SpeedLimitBimt`)**: the APK's RX parser (`method.txt`, `case 98`) reads **two** DATA bytes — `new SpeedLimitBimt(bytes[5], bytes[6])` — from the response to our `0x62` handshake query (sibling cases `97`/`99` answer `0x61` SN and `0x63` light, matching our pipeline). The Governor card now renders this live in `#gov-readback` and disambiguates the byte order empirically: wire-limit bytes are always ≥ 44 (15 km/h + 29) while gear bytes are ≤ 14, so the smaller side identifies the gear.
+**0x62 readback (`SpeedLimitBimt`) — hardware-verified (Sept 2026)**: the APK's RX parser (`method.txt`, `case 98`) reads **two** DATA bytes — `new SpeedLimitBimt(bytes[5], bytes[6])` — from the response to our `0x62` handshake query (sibling cases `97`/`99` answer `0x61` SN and `0x63` light, matching our pipeline). Real capture at connect: `1A-A1-62-04-02-0F-32-F9-1D-1F-F1` → DATA `[15, 50]`, i.e. **direct km/h values (min 15 · max/current 50)** — *not* a gear/wire pair (gear bytes are ≤ 14, wire limits ≥ 44). The Governor card's `#gov-readback` line decodes all three observed shapes: gear-first `[gear, wire]`, limit-first `[wire, gear]`, and the hardware-observed direct pair.
 
-- **gear-first** (green) → confirms the app's TX format `[gear, wire]`.
-- **limit-first** (orange) → would contradict it; report this result before changing any TX code.
+**Per-gear enforcement — hardware-verified**: every `0x36` write is ACKed with `1A-A1-36-05-00-CRC` (Param `0x05`, Len `0x00`) — note this is the *generic* OK-ACK (the lock command gets the identical `…32-05-00…` shape), so it proves CRC/format acceptance, **not** that the cap applied. Limits are stored **per gear byte**: writing gear `3` leaves whatever you're actually riding (e.g. byte `1`) uncapped. `applySpeedLimit()` therefore now also writes to the **active gear byte** from telemetry (`0x20 bytes[15] & 0x0f` → `lastGearByte`, label `SET_SPEED_ACTIVE_G…`), and `unlockMaxSpeed()` syncs it too (`UNLOCK_MAX_ACTIVE_G…`) when it isn't 11/3. **Verify on the scooter**: after a preset, the cluster *Governor* tile (`0x20[12]`, active limit in km/h) must change to the new value — if it doesn't, the write landed on a non-active gear.
 
-The TX format itself remains `[gear, wire]` with `LEN 0x02`: the command is named `APP_SPEED_LIMIT_GEAR_ECO` ("speed limit **gear**"), every writer in `index.html` sends two bytes (`applySpeedLimit`, `unlockMaxSpeed`, profiles), and the −29 table above was CRC-verified against that layout. A hypothetical `[wireSpeed, 0x01]` write would make the controller read the speed value as a *gear index* and has no support in the decompile.
+The TX format itself remains `[gear, wire]` with `LEN 0x02`: the command is named `APP_SPEED_LIMIT_GEAR_ECO`, hardware accepted it (ACK above), and the −29 table above stands. A `[wireSpeed, 0x01]` write (or dropping the −29 offset — raw `25` would mean −4 km/h) has no support in the decompile or the captures.
 
 ### 2. 7-Segment Dashboard Hex Gear Profiles
 
