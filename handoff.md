@@ -160,6 +160,7 @@ The scooter's dashboard 7-segment display shows `(gearByte + 1)` in hexadecimal:
 - **Headlight ON**: Sends CMD `0x33` on `PARAM 0x05` with `LEN 0x01`, data `[0x00]` (`1A-A1-33-05-01-00-1E-F1-1F-F1`). The packet bytes are authoritative: CRC `1E F1` is the CRC-16/ARC of `33 05 01 00`, so the payload really is the single byte `0x00` (an earlier note claiming `[0x01, 0x01]` contradicted its own packet and has been corrected).
 - **All Lights OFF**: Sends 6-byte zero array `[0, 0, 0, 0, 0, 0]` (`1A-A1-33-02-06-00-00-00-00-00-00-AD-D8-1F-F1`).
 - **RGB Color Sequence**: Physical scooter firmware requires lights to be turned ON first before setting custom RGB color; the app automatically executes this sequence ("Arm & Apply RGB").
+- **RGB color frame (source-verified `DevSeLightAct.setLightView()` → `z0.a.n()`/`z0.a.l()`)**: data = `[0x02, brightness, mode, colorCount, …RGB]` — CMD `0x33`, PARAM `0x02`. Modes 0/1 (Static/Breathe) send a single color (`count=1`, 7 data bytes: `n(2, bright, mode, 1, R, G, B)`); mode 2 (Rainbow) sends ≥3 colors (`l()`; APK gates this behind `check3Colors()` ≥3). An earlier build sent `[mode, 0x32, bright, 1, R, G, B]` — fields in the wrong order — which is why only Static appeared to work (it lit the stock rainbow effect instead of the picked color) and Breathe/Rainbow did nothing.
 
 ---
 
@@ -258,7 +259,7 @@ The interface is built as a native companion mobile app (`.app-shell` with max 4
   - Real-time color preview box & native OS color picker.
   - 8 quick preset swatches.
   - Individual R, G, B and brightness sliders.
-  - Animation modes: Static, Breathe, Rainbow.
+  - Animation modes: Static, Breathe, Rainbow (APK modes 0/1/2; Rainbow sends 5 colors, APK requires ≥3).
   - "🎨 Arm & Apply RGB" multi-packet sequence.
 
 #### 🔒 Tab 3: Security

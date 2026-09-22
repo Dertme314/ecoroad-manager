@@ -2228,8 +2228,8 @@
                 text-align: center;
               "
             >
-              Sequence: Sends Lights-ON first, then color (fixes rainbow
-              default)
+              Lights-ON first, then APK color frame [02 bright mode …]. Rainbow
+              sends 5 colors (APK requires ≥3).
             </div>
           </div>
         </div>
@@ -3816,15 +3816,36 @@
         await lightsSet(0, 0, 0, 0, 0, 0);
       }
 
-      // APK dynamic RGB: 7-byte payload = [mode, speed, brightness, count=1, R, G, B]
-      // Confirmed packet: 1A-A1-33-02-07-00-32-64-01-00-FF-00-ED-A7-1F-F1 (green, static)
+      // APK parity — DevSeLightAct.setLightView():
+      //   modes 0/1 → z0.a.n(2, brightness, mode, 1, R, G, B)
+      //     data = [0x02, brightness, mode, count=1, R, G, B]
+      //   mode 2 (multicolor) → z0.a.l(2, brightness, mode, colors)
+      //     data = [0x02, brightness, mode, colorCount, ...RGB triples]
+      //     APK requires ≥3 colors (check3Colors) for modes 2/3.
       async function sendRgb() {
         const r = +document.getElementById("sl-r").value;
         const g = +document.getElementById("sl-g").value;
         const b = +document.getElementById("sl-b").value;
         const bright = +document.getElementById("sl-bright").value;
-        const speed = 50; // 0x32, matches APK default
-        const payload = new Uint8Array([rgbMode, speed, bright, 0x01, r, g, b]);
+        let payload;
+        if (rgbMode >= 2) {
+          // Rainbow needs ≥3 colors — user color first, then spectrum stops
+          const colors = [
+            r, g, b,
+            255, 255, 0,
+            0, 255, 0,
+            0, 255, 255,
+            255, 0, 255,
+          ];
+          payload = new Uint8Array(4 + colors.length);
+          payload[0] = 0x02;
+          payload[1] = bright;
+          payload[2] = rgbMode;
+          payload[3] = colors.length / 3; // colorCount
+          payload.set(colors, 4);
+        } else {
+          payload = new Uint8Array([0x02, bright, rgbMode, 0x01, r, g, b]);
+        }
         const pkt = buildDynamicFrame(CMD.LIGHTS, 0x02, payload);
         await sendPacket(
           pkt,
